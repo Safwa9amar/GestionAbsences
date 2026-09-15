@@ -35,7 +35,8 @@ function  ProviderDiagnostics: string;
 function  OpenDatabase(AConn: TADOConnection; const AFile: string;
                       out AError: string): Boolean;
 function  DatabaseExists: Boolean;
-function  CreateEmptyDatabase(const AFile: string): Boolean;
+function  CreateEmptyDatabase(const AFile: string;
+                              out AError: string): Boolean;
 procedure CreateSchema(AConn: TADOConnection);
 procedure SeedReferenceData(AConn: TADOConnection);
 function  EnsureDatabase(AConn: TADOConnection): Boolean;
@@ -238,35 +239,80 @@ end;
 { ------------------------------------------------------------------------
   إنشاء ملف قاعدة بيانات فارغ باستعمال ADOX
   ------------------------------------------------------------------------ }
-function CreateEmptyDatabase(const AFile: string): Boolean;
+function FileSizeOf(const AFile: string): Int64;
+var
+  SR : TSearchRec;
+begin
+  Result := -1;
+  if FindFirst(AFile, faAnyFile, SR) = 0 then
+  begin
+    Result := SR.Size;
+    FindClose(SR);
+  end;
+end;
 
-  { محاولة الإنشاء بموفر واحد. لا تُقبل النتيجة إلا إذا كان الملف الناتج
-    يحمل ترويسة صالحة، حتى لا يبقى ملف ناقص يعطّل التشغيل القادم. }
+function CreateEmptyDatabase(const AFile: string;
+  out AError: string): Boolean;
+var
+  Errs : string;
+
+  { محاولة الإنشاء بموفر واحد، مع إرجاع نص الخطأ الحقيقي بدل ابتلاعه }
   function TryCreate(const AProvider: string): Boolean;
   var
     Cat : OleVariant;
+    Sz  : Int64;
   begin
+    Result := False;
     try
       if FileExists(AFile) then
         DeleteFile(PChar(AFile));
+
       Cat := CreateOleObject('ADOX.Catalog');
       Cat.Create(ConnStrFor(AProvider, AFile));
+
+      { مهم : ADOX يترك الاتصال مفتوحا بعد Create فيبقى الملف مقفلا،
+        وعندها تفشل أي قراءة لاحقة لترويسة الملف. }
+      try
+        Cat.ActiveConnection.Close;
+      except
+        { بعض الإصدارات لا تُبقي الاتصال مفتوحا - يُتجاهل }
+      end;
       Cat := Unassigned;
-      Result := FileExists(AFile) and
-                (not SameText(DetectDbFormat(AFile), 'UNKNOWN'));
+
+      Sz     := FileSizeOf(AFile);
+      Result := Sz > 0;
+      if not Result then
+        Errs := Errs + AProvider + ' : لم يُنشأ الملف (الحجم = ' +
+                IntToStr(Sz) + ')' + #13#10;
     except
-      Result := False;
+      on E: Exception do
+        Errs := Errs + AProvider + ' : ' + E.Message + #13#10;
     end;
   end;
 
 begin
+  Errs   := '';
+  AError := '';
+  Result := False;
+
+  { التأكد من المجلد قبل أي محاولة }
+  if not DirectoryExists(ExtractFileDir(AFile)) then
+    if not ForceDirectories(ExtractFileDir(AFile)) then
+    begin
+      AError := 'تعذر إنشاء المجلد : ' + ExtractFileDir(AFile);
+      Exit;
+    end;
+
   Result := TryCreate(PROV_JET);
   if not Result then Result := TryCreate(PROV_ACE);
   if not Result then Result := TryCreate(PROV_ACE16);
 
-  { لا نترك خلفنا ملفا تالفا }
-  if (not Result) and FileExists(AFile) then
-    DeleteFile(PChar(AFile));
+  if not Result then
+  begin
+    AError := Errs;
+    if FileExists(AFile) then
+      DeleteFile(PChar(AFile));
+  end;
 end;
 
 procedure CreateSchema(AConn: TADOConnection);
@@ -582,8 +628,8 @@ end;
 
 function EnsureDatabase(AConn: TADOConnection): Boolean;
 var
-  F, Err : string;
-  Fresh  : Boolean;
+  F, Err, CrErr : string;
+  Fresh         : Boolean;
 begin
   Result := False;
   F      := DatabasePath;
@@ -606,14 +652,12 @@ begin
   { 2) إنشاء الملف إن لم يكن موجودا }
   if not FileExists(F) then
   begin
-    if not CreateEmptyDatabase(F) then
+    if not CreateEmptyDatabase(F, CrErr) then
     begin
       ShowError('تعذر إنشاء ملف قاعدة البيانات :' + #13#10 + F + #13#10 + #13#10 +
+                'سبب الفشل عند كل موفر :' + #13#10 + CrErr + #13#10 +
                 'حالة المكونات على هذا الجهاز :' + #13#10 +
-                ProviderDiagnostics + #13#10 + #13#10 +
-                'الحل : ثبّت "Microsoft Access Database Engine 2016' +
-                ' Redistributable" نسخة 32 بت (AccessDatabaseEngine.exe)' +
-                #13#10 + 'ثم أعد تشغيل البرنامج.');
+                ProviderDiagnostics);
       Exit;
     end;
     Fresh := True;
