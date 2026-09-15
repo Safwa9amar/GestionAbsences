@@ -633,13 +633,28 @@ var
   Y, M, D   : Word;
   YearLabel : string;
 begin
-  { --- 1. المستخدم الافتراضي : admin / admin --- }
-  if Empty('AppUsers') then
-    Exec('INSERT INTO AppUsers (UserLogin, PassHash, FullName, UserRole,' +
-         ' IsActive, CreatedAt) VALUES (' +
-         SqlStr('admin') + ', ' + SqlStr(SHA1Hash('admin')) + ', ' +
-         SqlStr('مسؤول النظام') + ', ' + SqlStr('ADMIN') + ', True, ' +
-         SqlDate(Date) + ')');
+  { --- 1. المستخدم الافتراضي : admin / admin ---
+    الشرط ليس "الجدول فارغ" بل "لا يوجد حساب مسؤول نشط".
+    الشرط القديم كان يترك المستخدم بلا وسيلة دخول في كل حالة يكون فيها
+    الجدول غير فارغ لكن بلا حساب صالح : حُذف المسؤول، أو أُوقف، أو غُيّرت
+    صلاحيته، أو بقي في الجدول سطر من محاولة تهيئة فاشلة. }
+  if LookupID(AConn, 'SELECT COUNT(*) FROM AppUsers' +
+                     ' WHERE UserRole = ' + SqlStr('ADMIN') +
+                     ' AND IsActive = True') = 0 then
+  begin
+    if LookupID(AConn, 'SELECT COUNT(*) FROM AppUsers WHERE UserLogin = ' +
+                       SqlStr('admin')) > 0 then
+      { الحساب موجود لكنه موقوف أو بصلاحية أخرى : يُعاد ضبطه }
+      Exec('UPDATE AppUsers SET PassHash = ' + SqlStr(SHA1Hash('admin')) +
+           ', UserRole = ' + SqlStr('ADMIN') + ', IsActive = True' +
+           ' WHERE UserLogin = ' + SqlStr('admin'))
+    else
+      Exec('INSERT INTO AppUsers (UserLogin, PassHash, FullName, UserRole,' +
+           ' IsActive, CreatedAt) VALUES (' +
+           SqlStr('admin') + ', ' + SqlStr(SHA1Hash('admin')) + ', ' +
+           SqlStr('مسؤول النظام') + ', ' + SqlStr('ADMIN') + ', True, ' +
+           SqlDate(Date) + ')');
+  end;
 
   { --- 2. السنة الدراسية الجارية --- }
   if Empty('SchoolYears') then
