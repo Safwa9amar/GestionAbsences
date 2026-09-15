@@ -113,10 +113,28 @@ begin
     PROV_ACE16 + ' : ' + YN(ProviderInstalled(PROV_ACE16));
 end;
 
+{ سلسلة الاتصال المستعملة عند الفتح }
 function ConnStrFor(const AProvider, AFile: string): string;
 begin
   Result := 'Provider=' + AProvider + ';Data Source=' + AFile +
             ';Persist Security Info=False;';
+end;
+
+{ سلسلة الاتصال المستعملة عند الإنشاء بواسطة ADOX.
+
+  ملاحظة أساسية : الإجراء Catalog.Create لا يقبل إلا الخصائص الصالحة
+  وقت الإنشاء. وجود 'Persist Security Info' يُنتج الخطأ :
+  "Multiple-step OLE DB operation generated errors ... No work was done".
+  لذلك تُستعمل هنا سلسلة مختصرة.
+
+  كما يُفرض على موفر ACE إنتاج ملف بصيغة Jet 4 (MDB) عبر
+  'Jet OLEDB:Engine Type=5'، وإلا أنشأ ملفا بصيغة ACCDB رغم الامتداد mdb. }
+function ConnStrCreate(const AProvider, AFile: string): string;
+begin
+  Result := 'Provider=' + AProvider + ';Data Source=' + AFile;
+  if (not SameText(AProvider, PROV_JET)) and
+     SameText(ExtractFileExt(AFile), '.mdb') then
+    Result := Result + ';Jet OLEDB:Engine Type=5';
 end;
 
 function BuildConnectionString(const AFile: string): string;
@@ -268,7 +286,7 @@ var
         DeleteFile(PChar(AFile));
 
       Cat := CreateOleObject('ADOX.Catalog');
-      Cat.Create(ConnStrFor(AProvider, AFile));
+      Cat.Create(ConnStrCreate(AProvider, AFile));
 
       { مهم : ADOX يترك الاتصال مفتوحا بعد Create فيبقى الملف مقفلا،
         وعندها تفشل أي قراءة لاحقة لترويسة الملف. }
