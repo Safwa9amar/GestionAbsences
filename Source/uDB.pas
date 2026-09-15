@@ -502,7 +502,6 @@ const
   'CREATE UNIQUE INDEX IX_Years_Label ON SchoolYears (YearLabel)',
   'CREATE UNIQUE INDEX IX_Classes_Name ON Classes (ClassName, YearID)'
   );
-var
   REQUIRED : array[0..12] of string = (
     'AppUsers', 'SchoolYears', 'GradeLevels', 'Classes', 'Subjects',
     'Teachers', 'TimeSlots', 'Students', 'Absences', 'Notices',
