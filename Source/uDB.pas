@@ -11,7 +11,7 @@
 interface
 
 uses
-  Windows, SysUtils, Classes, ADODB, ComObj, Variants, Forms, Registry;
+  Windows, SysUtils, Classes, DB, ADODB, ComObj, Variants, Forms, Registry;
 
 const
   PROV_JET    = 'Microsoft.Jet.OLEDB.4.0';
@@ -534,7 +534,6 @@ function TableRowCount(AConn: TADOConnection; const ATable: string): Integer;
 var
   Q : TADOQuery;
 begin
-  Result := -1;
   Q := TADOQuery.Create(nil);
   try
     Q.Connection := AConn;
@@ -723,32 +722,12 @@ begin
   AddSetting('DB_VERSION',    '1.0');
 end;
 
-function TableExists(AConn: TADOConnection; const ATable: string): Boolean;
-var
-  L : TStringList;
-begin
-  Result := False;
-  L := TStringList.Create;
-  try
-    try
-      AConn.GetTableNames(L, False);
-      Result := L.IndexOf(ATable) >= 0;
-    except
-      Result := False;
-    end;
-  finally
-    L.Free;
-  end;
-end;
-
 function EnsureDatabase(AConn: TADOConnection): Boolean;
 var
   F, Err, CrErr : string;
-  Fresh         : Boolean;
 begin
   Result := False;
   F      := DatabasePath;
-  Fresh  := False;
 
   { 1) ملف موجود لكن ترويسته غير معروفة -> ملف تالف، يُحذف بعد موافقة المستخدم }
   if FileExists(F) and SameText(DetectDbFormat(F), 'UNKNOWN') then
@@ -775,7 +754,6 @@ begin
                 ProviderDiagnostics);
       Exit;
     end;
-    Fresh := True;
   end;
 
   { 3) الفتح : يُختار الموفر حسب الصيغة الحقيقية للملف }
@@ -785,10 +763,9 @@ begin
     Exit;
   end;
 
-  { 4) إنشاء الهيكل إذا كانت القاعدة فارغة
-       (ملف جديد، أو ملف ناقص خلّفه تشغيل سابق فاشل) }
-  { يُنفَّذان في كل تشغيل : كلاهما لا يعيد إنشاء ما هو موجود، ويكملان
-    أي نقص خلّفه تشغيل سابق فاشل (جداول بلا بيانات مثلا). }
+  { 4) الهيكل والبيانات المرجعية : يُنفَّذان في كل تشغيل، فكلاهما لا يعيد
+       إنشاء ما هو موجود، ويكملان أي نقص خلّفه تشغيل سابق فاشل
+       (جداول بلا بيانات مثلا). }
   try
     CreateSchema(AConn);
     SeedReferenceData(AConn);

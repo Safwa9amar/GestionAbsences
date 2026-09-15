@@ -6,7 +6,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, ExtCtrls, Dialogs, ExtDlgs;
+  StdCtrls, ExtCtrls;
 
 type
   TfrmSettings = class(TForm)
