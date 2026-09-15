@@ -354,7 +354,7 @@ begin
       '</b><br>بالدخول إلى القسم : <b>' +
       HtmlEscape(FqPermit.FieldByName('ClassName').AsString) +
       '</b><br>بتاريخ : <b>' +
-      HtmlEscape(FormatArabicDate(FqPermit.FieldByName('PermitDate').AsDateTime)) +
+      HtmlEscape(FormatLongDate(FqPermit.FieldByName('PermitDate').AsDateTime)) +
       '</b>  على الساعة : <b>' +
       HtmlEscape(FqPermit.FieldByName('EntryTime').AsString) +
       '</b><br>السبب : <b>' +

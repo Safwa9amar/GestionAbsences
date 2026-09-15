@@ -320,7 +320,7 @@ begin
     Rep.Header(dm.GetSetting('SCHOOL_NAME', R_SchoolDefault),
                dm.GetSetting('DIRECTION', ''),
                IfThenStr(cbType.ItemIndex = RT_DAILY,
-                 FormatArabicDate(dtFrom.Date),
+                 FormatLongDate(dtFrom.Date),
                  R_FromLbl + FormatDateTime('dd/mm/yyyy', dtFrom.Date) +
                  R_ToLbl + FormatDateTime('dd/mm/yyyy', dtTo.Date)) +
                '   -   ' + R_AbsClass + ' : ' + cbClass.Text);

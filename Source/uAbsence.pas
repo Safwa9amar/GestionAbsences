@@ -572,7 +572,7 @@ begin
   try
     Rep.Header(dm.GetSetting('SCHOOL_NAME', R_SchoolDefault),
                dm.GetSetting('DIRECTION', ''),
-               FormatArabicDate(dtDate.Date));
+               FormatLongDate(dtDate.Date));
     Rep.OpenTable([R_ColNum, R_StuClass, R_StuLastName, R_StuFirstName,
                    R_AbsSlot, R_ColTime, R_AbsSubject, R_AbsState,
                    R_AbsMinutes, R_AbsJustified]);

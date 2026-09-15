@@ -552,7 +552,7 @@ begin
     else if SameText(Kind, 'SUM') then
       Rep.Paragraph(
         'يشرفني أن أستدعيكم للحضور إلى مقر المؤسسة يوم <b>' +
-        HtmlEscape(FormatArabicDate(dm.qNotices.FieldByName('MeetDate').AsDateTime)) +
+        HtmlEscape(FormatLongDate(dm.qNotices.FieldByName('MeetDate').AsDateTime)) +
         '</b> على الساعة <b>' +
         HtmlEscape(dm.qNotices.FieldByName('MeetTime').AsString) +
         '</b>، وذلك لمقابلة مستشار التربية بخصوص ابنكم <b>' +
@@ -565,7 +565,7 @@ begin
         '</b> قد سجلت عليه <b>' + IntToStr(Nb) +
         '</b> حالة غياب غير مبررة.<br>' +
         'لذا يرجى منكم الحضور إلى المؤسسة يوم <b>' +
-        HtmlEscape(FormatArabicDate(dm.qNotices.FieldByName('MeetDate').AsDateTime)) +
+        HtmlEscape(FormatLongDate(dm.qNotices.FieldByName('MeetDate').AsDateTime)) +
         '</b> على الساعة <b>' +
         HtmlEscape(dm.qNotices.FieldByName('MeetTime').AsString) +
         '</b> لتبرير أسباب الغياب وعدم مزاولة الدراسة.<br>' +

@@ -692,6 +692,7 @@ begin
   AddSetting('THRESHOLD_1',   IntToStr(DEF_THRESHOLD_1));
   AddSetting('THRESHOLD_2',   IntToStr(DEF_THRESHOLD_2));
   AddSetting('THRESHOLD_3',   IntToStr(DEF_THRESHOLD_3));
+  AddSetting('LANG',          'AR');   { AR = العربية / FR = الفرنسية }
   AddSetting('DB_VERSION',    '1.0');
 end;
 

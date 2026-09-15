@@ -50,6 +50,7 @@ type
     property CurrentUserRole : string  read FUserRole;
 
     function  Connect: Boolean;
+    procedure StoreLanguage;
     function  Login(const ALogin, APassword: string; out AError: string): Boolean;
     procedure Logout;
     function  IsAdmin: Boolean;
@@ -115,7 +116,16 @@ function TdmMain.Connect: Boolean;
 begin
   Result := EnsureDatabase(conn);
   if Result then
+  begin
+    { اللغة المحفوظة تُطبَّق قبل إنشاء أي نافذة }
+    SetLanguageByCode(GetSetting('LANG', 'AR'));
     OpenLookups;
+  end;
+end;
+
+procedure TdmMain.StoreLanguage;
+begin
+  SetSetting('LANG', LangCode);
 end;
 
 { ------------------------------------------------------------------------

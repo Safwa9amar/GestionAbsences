@@ -52,9 +52,9 @@ function  IfThenStr(ACond: Boolean; const ATrue, AFalse: string): string;
 function  AppDir: string;
 function  ReportsDir: string;
 function  HtmlEscape(const AText: string): string;
-function  ArabicDayName(const ADate: TDateTime): string;
-function  ArabicMonthName(AMonth: Integer): string;
-function  FormatArabicDate(const ADate: TDateTime): string;
+function  LocalDayName(const ADate: TDateTime): string;
+function  LocalMonthName(AMonth: Integer): string;
+function  FormatLongDate(const ADate: TDateTime): string;
 procedure FillCombo(ACombo: TStrings; ADataSet: TDataSet;
                     const ADisplayField, AKeyField: string;
                     AKeys: TStrings; const AFirstItem: string = '');
@@ -174,23 +174,31 @@ end;
   رسائل الحوار
   ========================================================================== }
 
+{ أعلام الاتجاه تُضاف فقط في اللغات التي تُكتب من اليمين إلى اليسار }
+function DirFlags: Cardinal;
+begin
+  if IsRTL then
+    Result := MB_RTLREADING or MB_RIGHT
+  else
+    Result := 0;
+end;
+
 procedure ShowInfo(const AMsg: string);
 begin
   MessageBox(0, PChar(AMsg), PChar(R_MsgInfoTitle),
-             MB_OK or MB_ICONINFORMATION or MB_RTLREADING or MB_RIGHT);
+             MB_OK or MB_ICONINFORMATION or DirFlags);
 end;
 
 procedure ShowError(const AMsg: string);
 begin
   MessageBox(0, PChar(AMsg), PChar(R_MsgErrTitle),
-             MB_OK or MB_ICONERROR or MB_RTLREADING or MB_RIGHT);
+             MB_OK or MB_ICONERROR or DirFlags);
 end;
 
 function AskYesNo(const AMsg: string): Boolean;
 begin
   Result := MessageBox(0, PChar(AMsg), PChar(R_MsgConfirmTitle),
-              MB_YESNO or MB_ICONQUESTION or MB_DEFBUTTON2
-              or MB_RTLREADING or MB_RIGHT) = IDYES;
+              MB_YESNO or MB_ICONQUESTION or MB_DEFBUTTON2 or DirFlags) = IDYES;
 end;
 
 { ==========================================================================
@@ -199,10 +207,13 @@ end;
 
 procedure ApplyRTL(AForm: TForm);
 begin
-  { يكفي ضبط اتجاه النافذة : الخاصية ParentBiDiMode مفعّلة افتراضيا في كل
-    المكونات، فتتلقى تلقائيا الرسالة CM_PARENTBIDIMODECHANGED وترث الاتجاه.
-    (ParentBiDiMode خاصية محمية في TControl ولا يمكن ضبطها من خارج الصنف). }
-  AForm.BiDiMode := bdRightToLeft;
+  { اتجاه الواجهة يتبع اللغة الجارية : العربية يمين-يسار، الفرنسية يسار-يمين.
+    يكفي ضبط النافذة : الخاصية ParentBiDiMode مفعّلة افتراضيا في كل المكونات،
+    فتتلقى الرسالة CM_PARENTBIDIMODECHANGED وترث الاتجاه تلقائيا. }
+  if IsRTL then
+    AForm.BiDiMode := bdRightToLeft
+  else
+    AForm.BiDiMode := bdLeftToRight;
 end;
 
 { ==========================================================================
@@ -270,32 +281,44 @@ begin
   Result := StringReplace(Result,  '"', '&quot;', [rfReplaceAll]);
 end;
 
-function ArabicDayName(const ADate: TDateTime): string;
+{ أسماء الأيام والأشهر بالتسمية المغاربية المستعملة في الجزائر }
+function LocalDayName(const ADate: TDateTime): string;
 const
-  Days : array[1..7] of string =
+  DaysAR : array[1..7] of string =
     ('الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت');
+  DaysFR : array[1..7] of string =
+    ('Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi');
 begin
-  Result := Days[DayOfWeek(ADate)];
+  if CurrentLang = langFR then
+    Result := DaysFR[DayOfWeek(ADate)]
+  else
+    Result := DaysAR[DayOfWeek(ADate)];
 end;
 
-function ArabicMonthName(AMonth: Integer): string;
+function LocalMonthName(AMonth: Integer): string;
 const
-  Months : array[1..12] of string =
+  MonthsAR : array[1..12] of string =
     ('جانفي', 'فيفري', 'مارس', 'أفريل', 'ماي', 'جوان',
      'جويلية', 'أوت', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر');
+  MonthsFR : array[1..12] of string =
+    ('janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+     'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre');
 begin
-  if (AMonth >= 1) and (AMonth <= 12) then
-    Result := Months[AMonth]
+  Result := '';
+  if (AMonth < 1) or (AMonth > 12) then Exit;
+  if CurrentLang = langFR then
+    Result := MonthsFR[AMonth]
   else
-    Result := '';
+    Result := MonthsAR[AMonth];
 end;
 
-function FormatArabicDate(const ADate: TDateTime): string;
+function FormatLongDate(const ADate: TDateTime): string;
 var
   Y, M, D : Word;
 begin
   DecodeDate(ADate, Y, M, D);
-  Result := Format('%s %d %s %d', [ArabicDayName(ADate), D, ArabicMonthName(M), Y]);
+  Result := Format('%s %d %s %d',
+                   [LocalDayName(ADate), D, LocalMonthName(M), Y]);
 end;
 
 procedure FillCombo(ACombo: TStrings; ADataSet: TDataSet;
@@ -348,7 +371,10 @@ begin
   FTitle  := ATitle;
   FLines  := TStringList.Create;
   FLines.Add('<!DOCTYPE html>');
-  FLines.Add('<html dir="rtl" lang="ar"><head><meta charset="utf-8">');
+  if IsRTL then
+    FLines.Add('<html dir="rtl" lang="ar"><head><meta charset="utf-8">')
+  else
+    FLines.Add('<html dir="ltr" lang="fr"><head><meta charset="utf-8">');
   FLines.Add('<title>' + HtmlEscape(ATitle) + '</title><style>');
   FLines.Add('@page { size: A4; margin: 12mm; }');
   FLines.Add('body { font-family: "Traditional Arabic","Simplified Arabic",' +
@@ -382,8 +408,8 @@ end;
 procedure TReportBuilder.Header(const ASchool, ADirection, ASubTitle: string);
 begin
   FLines.Add('<div class="hdr">');
-  FLines.Add('<div class="l1">الجمهورية الجزائرية الديمقراطية الشعبية</div>');
-  FLines.Add('<div class="l1">وزارة التربية الوطنية</div>');
+  FLines.Add('<div class="l1">' + HtmlEscape(R_RepHdrRepublic) + '</div>');
+  FLines.Add('<div class="l1">' + HtmlEscape(R_RepHdrMinistry) + '</div>');
   if ADirection <> '' then
     FLines.Add('<div class="l2">' + HtmlEscape(ADirection) + '</div>');
   if ASchool <> '' then
@@ -461,7 +487,8 @@ var
   Bom : array[0..2] of Byte;
 begin
   FLines.Add('<div class="noprint" style="text-align:center;margin:18px">' +
-             '<button onclick="window.print()">طباعة</button></div>');
+             '<button onclick="window.print()">' + HtmlEscape(R_Print) +
+             '</button></div>');
   FLines.Add('</body></html>');
 
   Result := ReportsDir + AFileName;

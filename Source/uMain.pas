@@ -32,6 +32,9 @@ type
     miTools         : TMenuItem;
     miUsers         : TMenuItem;
     miSettings      : TMenuItem;
+    miLang          : TMenuItem;
+    miLangAR        : TMenuItem;
+    miLangFR        : TMenuItem;
     miSep2          : TMenuItem;
     miBackup        : TMenuItem;
     miRestore       : TMenuItem;
@@ -76,6 +79,7 @@ type
     procedure miBackupClick(Sender: TObject);
     procedure miRestoreClick(Sender: TObject);
     procedure miAboutClick(Sender: TObject);
+    procedure miLangClick(Sender: TObject);
     procedure tmrTimer(Sender: TObject);
   private
     procedure ApplyCaptions;
@@ -126,6 +130,11 @@ begin
   miTools.Caption    := R_MnuTools;
   miUsers.Caption    := R_MnuUsers;
   miSettings.Caption := R_MnuSettings;
+  miLang.Caption     := R_LangMenu;
+  miLangAR.Caption   := R_LangArabic;
+  miLangFR.Caption   := R_LangFrench;
+  miLangAR.Checked   := CurrentLang = langAR;
+  miLangFR.Checked   := CurrentLang = langFR;
   miBackup.Caption   := R_MnuBackup;
   miRestore.Caption  := R_MnuRestore;
 
@@ -202,7 +211,7 @@ procedure TfrmMain.tmrTimer(Sender: TObject);
 begin
   sb.Panels[0].Text := R_StatUser + dm.CurrentUserName + '  (' +
                        dm.CurrentUserRole + ')';
-  sb.Panels[1].Text := R_StatDate + FormatArabicDate(Date) + '   ' +
+  sb.Panels[1].Text := R_StatDate + FormatLongDate(Date) + '   ' +
                        FormatDateTime('hh:nn:ss', Now);
   sb.Panels[2].Text := R_StatDB + ExtractFileName(DatabasePath);
 end;
@@ -337,6 +346,33 @@ end;
 procedure TfrmMain.miAboutClick(Sender: TObject);
 begin
   ShowInfo(R_AboutText);
+end;
+
+{ ------------------------------------------------------------------------
+  تبديل لغة الواجهة أثناء التشغيل
+  Changement de la langue de l'interface a chaud
+  ------------------------------------------------------------------------ }
+procedure TfrmMain.miLangClick(Sender: TObject);
+var
+  L : TAppLang;
+begin
+  if Sender = miLangFR then
+    L := langFR
+  else
+    L := langAR;
+
+  if L = CurrentLang then Exit;
+
+  SetLanguage(L);
+  dm.StoreLanguage;
+
+  { إعادة بناء تسميات النافذة الرئيسية واتجاهها.
+    باقي النوافذ تُنشأ عند الطلب فتأخذ اللغة الجديدة تلقائيا. }
+  ApplyCaptions;
+  ApplyRTL(Self);
+  ApplyRights;
+  RefreshDashboard;
+  tmrTimer(nil);
 end;
 
 end.

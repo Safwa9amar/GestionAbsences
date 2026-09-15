@@ -336,6 +336,21 @@ object frmMain: TfrmMain
         Caption = 'Settings'
         OnClick = miSettingsClick
       end
+      object miLang: TMenuItem
+        Caption = 'Language'
+        object miLangAR: TMenuItem
+          Caption = 'Arabic'
+          GroupIndex = 1
+          RadioItem = True
+          OnClick = miLangClick
+        end
+        object miLangFR: TMenuItem
+          Caption = 'French'
+          GroupIndex = 1
+          RadioItem = True
+          OnClick = miLangClick
+        end
+      end
       object miSep2: TMenuItem
         Caption = '-'
       end
