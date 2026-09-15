@@ -140,7 +140,7 @@ object frmMain: TfrmMain
     end
   end
   object pnlClient: TPanel
-    Left = 0
+    Left = 204
     Top = 0
     Width = 796
     Height = 601
@@ -149,112 +149,91 @@ object frmMain: TfrmMain
     Color = clWindow
     ParentBackground = False
     TabOrder = 2
-    object lblWelcome: TLabel
-      Left = 24
-      Top = 28
-      Width = 740
-      Height = 28
-      Alignment = taRightJustify
-      AutoSize = False
-      Caption = 'Welcome'
-      Font.Charset = ARABIC_CHARSET
-      Font.Color = clHighlight
-      Font.Height = -21
-      Font.Name = 'Tahoma'
-      Font.Style = [fsBold]
-      ParentFont = False
+    object imgCover: TImage
+      Left = 0
+      Top = 0
+      Width = 796
+      Height = 140
+      Align = alTop
+      Center = True
+      Proportional = True
+      Stretch = True
+      Visible = False
     end
-    object lblSchool: TLabel
-      Left = 24
-      Top = 66
-      Width = 740
-      Height = 22
-      Alignment = taRightJustify
-      AutoSize = False
-      Caption = 'School'
-      Font.Charset = ARABIC_CHARSET
-      Font.Color = clWindowText
-      Font.Height = -16
-      Font.Name = 'Tahoma'
-      Font.Style = []
-      ParentFont = False
-    end
-    object lblYear: TLabel
-      Left = 24
-      Top = 94
-      Width = 740
-      Height = 22
-      Alignment = taRightJustify
-      AutoSize = False
-      Caption = 'Year'
-      Font.Charset = ARABIC_CHARSET
-      Font.Color = clGrayText
-      Font.Height = -15
-      Font.Name = 'Tahoma'
-      Font.Style = []
-      ParentFont = False
-    end
-    object pnlStats: TPanel
-      Left = 24
+    object pnlHeader: TPanel
+      Left = 0
       Top = 140
-      Width = 740
-      Height = 190
+      Width = 796
+      Height = 108
+      Align = alTop
       BevelOuter = bvNone
-      BorderStyle = bsSingle
-      Color = clBtnFace
-      ParentBackground = False
       TabOrder = 0
-      object lblStatTitle: TLabel
+      object imgLogo: TImage
         Left = 16
         Top = 12
-        Width = 700
-        Height = 24
+        Width = 84
+        Height = 84
+        Center = True
+        Proportional = True
+        Stretch = True
+      end
+      object lblSchool: TLabel
+        Left = 112
+        Top = 14
+        Width = 660
+        Height = 28
         Alignment = taRightJustify
         AutoSize = False
-        Caption = 'Stats'
+        Caption = 'School'
         Font.Charset = ARABIC_CHARSET
         Font.Color = clWindowText
-        Font.Height = -17
+        Font.Height = -20
         Font.Name = 'Tahoma'
         Font.Style = [fsBold]
         ParentFont = False
       end
-      object lblStatStudents: TLabel
-        Left = 16
-        Top = 52
-        Width = 700
+      object lblYear: TLabel
+        Left = 112
+        Top = 46
+        Width = 660
         Height = 22
         Alignment = taRightJustify
         AutoSize = False
-        Caption = 'S1'
+        Caption = 'Year'
+        Font.Charset = ARABIC_CHARSET
+        Font.Color = clGrayText
+        Font.Height = -15
+        Font.Name = 'Tahoma'
+        Font.Style = []
+        ParentFont = False
       end
-      object lblStatClasses: TLabel
-        Left = 16
-        Top = 82
-        Width = 700
+      object lblWelcome: TLabel
+        Left = 112
+        Top = 72
+        Width = 660
         Height = 22
         Alignment = taRightJustify
         AutoSize = False
-        Caption = 'S2'
+        Caption = 'Welcome'
+        Font.Charset = ARABIC_CHARSET
+        Font.Color = clHighlight
+        Font.Height = -15
+        Font.Name = 'Tahoma'
+        Font.Style = [fsBold]
+        ParentFont = False
       end
-      object lblStatAbsToday: TLabel
-        Left = 16
-        Top = 112
-        Width = 700
-        Height = 22
-        Alignment = taRightJustify
-        AutoSize = False
-        Caption = 'S3'
-      end
-      object lblStatUnjust: TLabel
-        Left = 16
-        Top = 142
-        Width = 700
-        Height = 22
-        Alignment = taRightJustify
-        AutoSize = False
-        Caption = 'S4'
-      end
+    end
+    object pnlCards: TPanel
+      Left = 0
+      Top = 248
+      Width = 796
+      Height = 353
+      Align = alClient
+      BevelOuter = bvNone
+      Color = clWindow
+      ParentBackground = False
+      TabOrder = 1
+      OnResize = pnlCardsResize
     end
   end
   object mnu: TMainMenu

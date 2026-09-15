@@ -333,6 +333,22 @@ var
   R_RepHdrRepublic   : string;
   R_RepHdrMinistry   : string;
 
+  R_SetMediaGroup   : string;
+  R_SetLogo         : string;
+  R_SetCover        : string;
+  R_SetPickImg      : string;
+  R_SetClearImg     : string;
+  R_SetImgHint      : string;
+  R_CardSubStudents : string;
+  R_CardSubAbsence  : string;
+  R_CardSubJustify  : string;
+  R_CardSubNotices  : string;
+  R_CardSubDocs     : string;
+  R_CardSubReports  : string;
+  R_CardSubRefData  : string;
+  R_CardSubUsers    : string;
+  R_CardSubSettings : string;
+
 { --- تسيير اللغة / Gestion de la langue --------------------------------- }
 procedure SetLanguage(ALang: TAppLang);
 procedure SetLanguageByCode(const ACode: string);
@@ -667,6 +683,21 @@ begin
   R_CrtNoPrefix      := 'الرقم : ';
   R_RepHdrRepublic   := 'الجمهورية الجزائرية الديمقراطية الشعبية';
   R_RepHdrMinistry   := 'وزارة التربية الوطنية';
+  R_SetMediaGroup   := 'شعار وصورة المؤسسة';
+  R_SetLogo         := 'الشعار';
+  R_SetCover        := 'صورة الواجهة';
+  R_SetPickImg      := 'اختيار صورة ...';
+  R_SetClearImg     := 'إزالة';
+  R_SetImgHint      := 'الصيغ المقبولة : PNG أو JPG أو BMP. تُنسخ الصورة إلى مجلد البرنامج.';
+  R_CardSubStudents := 'ملفات التلاميذ والتسجيلات';
+  R_CardSubAbsence  := 'كشف الحضور والغياب اليومي';
+  R_CardSubJustify  := 'معالجة الغيابات غير المبررة';
+  R_CardSubNotices  := 'إشعارات واستدعاءات الأولياء';
+  R_CardSubDocs     := 'ورقة الدخول والشهادة المدرسية';
+  R_CardSubReports  := 'حوصلات ونسب الحضور';
+  R_CardSubRefData  := 'المستويات والمواد والحصص';
+  R_CardSubUsers    := 'الحسابات والصلاحيات';
+  R_CardSubSettings := 'بيانات المؤسسة والعتبات';
 end;
 
 { ==========================================================================
@@ -995,6 +1026,21 @@ begin
   R_CrtNoPrefix      := 'N° : ';
   R_RepHdrRepublic   := 'République Algérienne Démocratique et Populaire';
   R_RepHdrMinistry   := 'Ministère de l''Éducation Nationale';
+  R_SetMediaGroup   := 'Logo et photo de l''etablissement';
+  R_SetLogo         := 'Logo';
+  R_SetCover        := 'Photo de couverture';
+  R_SetPickImg      := 'Choisir une image ...';
+  R_SetClearImg     := 'Retirer';
+  R_SetImgHint      := 'Formats acceptes : PNG, JPG, BMP. Copiee dans le dossier du programme.';
+  R_CardSubStudents := 'Dossiers et inscriptions';
+  R_CardSubAbsence  := 'Feuille de presence du jour';
+  R_CardSubJustify  := 'Traiter les absences non justifiees';
+  R_CardSubNotices  := 'Avis et convocations des tuteurs';
+  R_CardSubDocs     := 'Billet d''entree et certificat';
+  R_CardSubReports  := 'Syntheses et taux de presence';
+  R_CardSubRefData  := 'Niveaux, matieres, seances';
+  R_CardSubUsers    := 'Comptes et droits d''acces';
+  R_CardSubSettings := 'Etablissement et seuils';
 end;
 
 { ==========================================================================

@@ -9,7 +9,7 @@ interface
 
 uses
   Windows, SysUtils, Classes, Controls, Forms, Dialogs, StdCtrls, Graphics,
-  ShellAPI, Variants, ComCtrls, DB;
+  ShellAPI, Variants, ComCtrls, ExtCtrls, Jpeg, PngImage, DB;
 
 type
   TReportBuilder = class
@@ -30,6 +30,19 @@ type
     procedure Raw(const AHtml: string);
     function  SaveAndOpen(const AFileName: string): string;
   end;
+
+{ --- شعار وصورة المؤسسة / Logo et photo de l'etablissement ------------- }
+var
+  { مسار ملف الشعار المستعمل في ترويسة الوثائق. يضبطه dmMain بعد الاتصال. }
+  ReportLogoFile : string = '';
+
+function  MediaDir: string;
+function  MediaPath(const AFileName: string): string;
+function  ImportMediaFile(const ASourceFile, ABaseName: string): string;
+procedure LoadImageInto(AImage: TImage; const AFileName: string);
+function  FileToBase64(const AFile: string): string;
+function  FileToDataURI(const AFile: string): string;
+function  ImageFilter: string;
 
 { --- تجزئة كلمة المرور (SHA-1) ----------------------------------------- }
 function SHA1Hash(const AText: string): string;
@@ -194,6 +207,162 @@ end;
   {$Q+}
   {$UNDEF SHA1_Q_WAS_ON}
 {$ENDIF}
+
+{ ==========================================================================
+  شعار وصورة المؤسسة
+  ========================================================================== }
+
+function MediaDir: string;
+begin
+  Result := AppDir + 'Data\Media\';
+  if not DirectoryExists(Result) then
+    ForceDirectories(Result);
+end;
+
+function MediaPath(const AFileName: string): string;
+begin
+  if Trim(AFileName) = '' then
+    Result := ''
+  else
+    Result := MediaDir + AFileName;
+end;
+
+function ImageFilter: string;
+begin
+  Result := 'Images (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp|' +
+            'PNG (*.png)|*.png|JPEG (*.jpg;*.jpeg)|*.jpg;*.jpeg|' +
+            'Bitmap (*.bmp)|*.bmp';
+end;
+
+{ تُنسخ الصورة المختارة إلى مجلد البرنامج حتى لا تضيع إذا نقل المستخدم
+  الملف الأصلي. تُعيد اسم الملف المخزَّن بدون مسار. }
+function ImportMediaFile(const ASourceFile, ABaseName: string): string;
+var
+  Ext, Dest : string;
+  Old       : TSearchRec;
+begin
+  Result := '';
+  if not FileExists(ASourceFile) then Exit;
+
+  Ext := LowerCase(ExtractFileExt(ASourceFile));
+  if (Ext <> '.png') and (Ext <> '.jpg') and
+     (Ext <> '.jpeg') and (Ext <> '.bmp') then
+  begin
+    ShowError('صيغة الصورة غير مدعومة. استعمل PNG أو JPG أو BMP.');
+    Exit;
+  end;
+
+  { حذف أي نسخة سابقة مهما كان امتدادها }
+  if FindFirst(MediaDir + ABaseName + '.*', faAnyFile, Old) = 0 then
+  begin
+    repeat
+      DeleteFile(PChar(MediaDir + Old.Name));
+    until FindNext(Old) <> 0;
+    FindClose(Old);
+  end;
+
+  Dest := MediaDir + ABaseName + Ext;
+  if CopyFile(PChar(ASourceFile), PChar(Dest), False) then
+    Result := ABaseName + Ext
+  else
+    ShowError('تعذر نسخ الصورة إلى مجلد البرنامج.');
+end;
+
+{ تحميل صورة في TImage مع تجاهل أي خطأ في الملف أو الصيغة }
+procedure LoadImageInto(AImage: TImage; const AFileName: string);
+var
+  F : string;
+begin
+  if AImage = nil then Exit;
+  AImage.Picture := nil;
+  F := MediaPath(AFileName);
+  if (F = '') or (not FileExists(F)) then Exit;
+  try
+    AImage.Picture.LoadFromFile(F);
+  except
+    AImage.Picture := nil;
+  end;
+end;
+
+{ ترميز Base64 : تُدرج الصورة داخل ملف التقرير نفسه، فلا يحتاج المتصفح
+  إلى الوصول إلى ملف محلي عند الطباعة. }
+function FileToBase64(const AFile: string): string;
+const
+  C = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+var
+  MS      : TMemoryStream;
+  Buf     : array of Byte;
+  I, N, O : Integer;
+  V       : Cardinal;
+begin
+  Result := '';
+  if (AFile = '') or (not FileExists(AFile)) then Exit;
+
+  MS := TMemoryStream.Create;
+  try
+    MS.LoadFromFile(AFile);
+    N := MS.Size;
+    if N <= 0 then Exit;
+    SetLength(Buf, N);
+    MS.Position := 0;
+    MS.ReadBuffer(Buf[0], N);
+  finally
+    MS.Free;
+  end;
+
+  SetLength(Result, ((N + 2) div 3) * 4);
+  O := 1;
+  I := 0;
+  while I + 2 < N do
+  begin
+    V := (Cardinal(Buf[I]) shl 16) or (Cardinal(Buf[I + 1]) shl 8) or
+          Cardinal(Buf[I + 2]);
+    Result[O]     := C[((V shr 18) and 63) + 1];
+    Result[O + 1] := C[((V shr 12) and 63) + 1];
+    Result[O + 2] := C[((V shr 6)  and 63) + 1];
+    Result[O + 3] := C[( V         and 63) + 1];
+    Inc(O, 4);
+    Inc(I, 3);
+  end;
+
+  if N - I = 1 then
+  begin
+    V := Cardinal(Buf[I]) shl 16;
+    Result[O]     := C[((V shr 18) and 63) + 1];
+    Result[O + 1] := C[((V shr 12) and 63) + 1];
+    Result[O + 2] := '=';
+    Result[O + 3] := '=';
+  end
+  else if N - I = 2 then
+  begin
+    V := (Cardinal(Buf[I]) shl 16) or (Cardinal(Buf[I + 1]) shl 8);
+    Result[O]     := C[((V shr 18) and 63) + 1];
+    Result[O + 1] := C[((V shr 12) and 63) + 1];
+    Result[O + 2] := C[((V shr 6)  and 63) + 1];
+    Result[O + 3] := '=';
+  end;
+end;
+
+function FileToDataURI(const AFile: string): string;
+var
+  Ext, Mime, B64 : string;
+begin
+  Result := '';
+  B64 := FileToBase64(AFile);
+  if B64 = '' then Exit;
+
+  Ext := LowerCase(ExtractFileExt(AFile));
+  if Ext = '.png' then
+    Mime := 'image/png'
+  else if (Ext = '.jpg') or (Ext = '.jpeg') then
+    Mime := 'image/jpeg'
+  else if Ext = '.bmp' then
+    Mime := 'image/bmp'
+  else
+    Mime := 'application/octet-stream';
+
+  Result := 'data:' + Mime + ';base64,' + B64;
+end;
 
 { ==========================================================================
   رسائل الحوار
@@ -477,6 +646,7 @@ begin
              '"Arial",sans-serif; font-size: 14pt; color:#000; margin:0; }');
   FLines.Add('.hdr { text-align:center; border-bottom:2px solid #000;' +
              ' padding-bottom:6px; margin-bottom:10px; }');
+  FLines.Add('.hdr .logo { height:78px; margin-bottom:4px; }');
   FLines.Add('.hdr .l1 { font-size:13pt; }');
   FLines.Add('.hdr .l2 { font-size:12pt; }');
   FLines.Add('.hdr .ttl { font-size:18pt; font-weight:bold; margin-top:8px;' +
@@ -504,6 +674,8 @@ end;
 procedure TReportBuilder.Header(const ASchool, ADirection, ASubTitle: string);
 begin
   FLines.Add('<div class="hdr">');
+  if ReportLogoFile <> '' then
+    FLines.Add('<img class="logo" src="' + FileToDataURI(ReportLogoFile) + '">');
   FLines.Add('<div class="l1">' + HtmlEscape(R_RepHdrRepublic) + '</div>');
   FLines.Add('<div class="l1">' + HtmlEscape(R_RepHdrMinistry) + '</div>');
   if ADirection <> '' then

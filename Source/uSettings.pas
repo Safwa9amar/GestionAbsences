@@ -6,7 +6,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, ExtCtrls;
+  StdCtrls, ExtCtrls, Dialogs, ExtDlgs;
 
 type
   TfrmSettings = class(TForm)
@@ -19,6 +19,13 @@ type
     lblEmail   : TLabel;  edEmail    : TEdit;
     lblDirector: TLabel;  edDirector : TEdit;
     lblAdvisor : TLabel;  edAdvisor  : TEdit;
+    gbMedia    : TGroupBox;
+    lblLogo    : TLabel;   imgLogo    : TImage;
+    btnLogoPick: TButton;  btnLogoClear : TButton;
+    lblCover   : TLabel;   imgCover   : TImage;
+    btnCoverPick: TButton; btnCoverClear: TButton;
+    lblImgHint : TLabel;
+    dlgImg     : TOpenDialog;
     gbThr      : TGroupBox;
     lblThr1    : TLabel;  edThr1     : TEdit;
     lblThr2    : TLabel;  edThr2     : TEdit;
@@ -30,9 +37,16 @@ type
     procedure FormCreate(Sender: TObject);
     procedure btnSaveClick(Sender: TObject);
     procedure btnCloseClick(Sender: TObject);
+    procedure btnLogoPickClick(Sender: TObject);
+    procedure btnLogoClearClick(Sender: TObject);
+    procedure btnCoverPickClick(Sender: TObject);
+    procedure btnCoverClearClick(Sender: TObject);
   private
+    FLogoFile  : string;
+    FCoverFile : string;
     procedure ApplyCaptions;
     procedure LoadSettings;
+    procedure RefreshPreviews;
   end;
 
 procedure ShowSettingsForm;
@@ -68,6 +82,15 @@ begin
   lblEmail.Caption   := R_SetEmail;
   lblDirector.Caption:= R_SetDirector;
   lblAdvisor.Caption := R_SetAdvisor;
+  gbMedia.Caption       := R_SetMediaGroup;
+  lblLogo.Caption       := R_SetLogo;
+  lblCover.Caption      := R_SetCover;
+  btnLogoPick.Caption   := R_SetPickImg;
+  btnCoverPick.Caption  := R_SetPickImg;
+  btnLogoClear.Caption  := R_SetClearImg;
+  btnCoverClear.Caption := R_SetClearImg;
+  lblImgHint.Caption    := R_SetImgHint;
+  dlgImg.Filter         := ImageFilter;
   gbThr.Caption      := R_SetThresholds;
   lblThr1.Caption    := R_SetThr1;
   lblThr2.Caption    := R_SetThr2;
@@ -98,6 +121,57 @@ begin
   edThr1.Text     := IntToStr(dm.GetSettingInt('THRESHOLD_1', DEF_THRESHOLD_1));
   edThr2.Text     := IntToStr(dm.GetSettingInt('THRESHOLD_2', DEF_THRESHOLD_2));
   edThr3.Text     := IntToStr(dm.GetSettingInt('THRESHOLD_3', DEF_THRESHOLD_3));
+
+  FLogoFile  := dm.GetSetting('LOGO_FILE', '');
+  FCoverFile := dm.GetSetting('COVER_FILE', '');
+  RefreshPreviews;
+end;
+
+procedure TfrmSettings.RefreshPreviews;
+begin
+  LoadImageInto(imgLogo,  FLogoFile);
+  LoadImageInto(imgCover, FCoverFile);
+  btnLogoClear.Enabled  := FLogoFile  <> '';
+  btnCoverClear.Enabled := FCoverFile <> '';
+end;
+
+{ --- اختيار الشعار وصورة الواجهة --------------------------------------- }
+procedure TfrmSettings.btnLogoPickClick(Sender: TObject);
+var
+  F : string;
+begin
+  if not dlgImg.Execute then Exit;
+  F := ImportMediaFile(dlgImg.FileName, 'logo');
+  if F <> '' then
+  begin
+    FLogoFile := F;
+    RefreshPreviews;
+  end;
+end;
+
+procedure TfrmSettings.btnLogoClearClick(Sender: TObject);
+begin
+  FLogoFile := '';
+  RefreshPreviews;
+end;
+
+procedure TfrmSettings.btnCoverPickClick(Sender: TObject);
+var
+  F : string;
+begin
+  if not dlgImg.Execute then Exit;
+  F := ImportMediaFile(dlgImg.FileName, 'cover');
+  if F <> '' then
+  begin
+    FCoverFile := F;
+    RefreshPreviews;
+  end;
+end;
+
+procedure TfrmSettings.btnCoverClearClick(Sender: TObject);
+begin
+  FCoverFile := '';
+  RefreshPreviews;
 end;
 
 procedure TfrmSettings.btnSaveClick(Sender: TObject);
@@ -126,6 +200,9 @@ begin
     dm.SetSetting('THRESHOLD_1', IntToStr(T1));
     dm.SetSetting('THRESHOLD_2', IntToStr(T2));
     dm.SetSetting('THRESHOLD_3', IntToStr(T3));
+    dm.SetSetting('LOGO_FILE',   FLogoFile);
+    dm.SetSetting('COVER_FILE',  FCoverFile);
+    ReportLogoFile := MediaPath(FLogoFile);
     ShowInfo(R_MsgSaved);
     Close;
   except

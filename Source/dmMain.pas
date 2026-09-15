@@ -119,6 +119,8 @@ begin
   begin
     { اللغة المحفوظة تُطبَّق قبل إنشاء أي نافذة }
     SetLanguageByCode(GetSetting('LANG', 'AR'));
+    { شعار المؤسسة يُستعمل في ترويسة كل وثيقة مطبوعة }
+    ReportLogoFile := MediaPath(GetSetting('LOGO_FILE', ''));
     OpenLookups;
   end;
 end;
