@@ -38,6 +38,7 @@ function  DatabaseExists: Boolean;
 function  CreateEmptyDatabase(const AFile: string;
                               out AError: string): Boolean;
 procedure CreateSchema(AConn: TADOConnection);
+function  TableRowCount(AConn: TADOConnection; const ATable: string): Integer;
 procedure SeedReferenceData(AConn: TADOConnection);
 function  EnsureDatabase(AConn: TADOConnection): Boolean;
 function  BackupDatabase(const ATargetFile: string): Boolean;
@@ -502,10 +503,75 @@ const
   'CREATE UNIQUE INDEX IX_Classes_Name ON Classes (ClassName, YearID)'
   );
 var
-  I : Integer;
+  REQUIRED : array[0..12] of string = (
+    'AppUsers', 'SchoolYears', 'GradeLevels', 'Classes', 'Subjects',
+    'Teachers', 'TimeSlots', 'Students', 'Absences', 'Notices',
+    'EntryPermits', 'Certificates', 'AppSettings');
+var
+  I       : Integer;
+  Missing : string;
 begin
+  { كل تعليمة على حدة : وجود الجدول أو الفهرس مسبقا لا يُعطّل الباقي.
+    هذا يجعل البرنامج قادرا على إكمال هيكل ناقص خلّفه تشغيل سابق فاشل. }
   for I := Low(DDL) to High(DDL) do
+  try
     AConn.Execute(DDL[I]);
+  except
+    { موجود مسبقا - يُتجاهل }
+  end;
+
+  { التحقق من أن كل الجداول المطلوبة أصبحت موجودة فعلا }
+  Missing := '';
+  for I := Low(REQUIRED) to High(REQUIRED) do
+    if TableRowCount(AConn, REQUIRED[I]) < 0 then
+      Missing := Missing + REQUIRED[I] + ' ';
+
+  if Missing <> '' then
+    raise Exception.Create('تعذر إنشاء الجداول التالية : ' + Missing);
+end;
+
+{ عدد الأسطر في جدول، أو -1 إذا كان الجدول غير موجود }
+function TableRowCount(AConn: TADOConnection; const ATable: string): Integer;
+var
+  Q : TADOQuery;
+begin
+  Result := -1;
+  Q := TADOQuery.Create(nil);
+  try
+    Q.Connection := AConn;
+    Q.SQL.Text   := 'SELECT COUNT(*) FROM [' + ATable + ']';
+    try
+      Q.Open;
+      Result := Q.Fields[0].AsInteger;
+      Q.Close;
+    except
+      Result := -1;
+    end;
+  finally
+    Q.Free;
+  end;
+end;
+
+function LookupID(AConn: TADOConnection; const ASql: string): Integer;
+var
+  Q : TADOQuery;
+begin
+  Result := 0;
+  Q := TADOQuery.Create(nil);
+  try
+    Q.Connection := AConn;
+    Q.SQL.Text   := ASql;
+    try
+      Q.Open;
+      if (not Q.IsEmpty) and (not Q.Fields[0].IsNull) then
+        Result := Q.Fields[0].AsInteger;
+      Q.Close;
+    except
+      Result := 0;
+    end;
+  finally
+    Q.Free;
+  end;
 end;
 
 { ------------------------------------------------------------------------
@@ -518,10 +584,18 @@ procedure SeedReferenceData(AConn: TADOConnection);
     AConn.Execute(ASql);
   end;
 
+  function Empty(const ATable: string): Boolean;
+  begin
+    Result := TableRowCount(AConn, ATable) = 0;
+  end;
+
   procedure AddSetting(const AKey, AValue: string);
   begin
-    Exec('INSERT INTO AppSettings (SettingKey, SettingValue) VALUES (' +
-         SqlStr(AKey) + ', ' + SqlStr(AValue) + ')');
+    { لا تُلمس قيمة ضبطها المستخدم من قبل }
+    if LookupID(AConn, 'SELECT COUNT(*) FROM AppSettings WHERE SettingKey = ' +
+                SqlStr(AKey)) = 0 then
+      Exec('INSERT INTO AppSettings (SettingKey, SettingValue) VALUES (' +
+           SqlStr(AKey) + ', ' + SqlStr(AValue) + ')');
   end;
 
   procedure AddLevel(const AName: string; AOrder: Integer);
@@ -543,71 +617,96 @@ procedure SeedReferenceData(AConn: TADOConnection);
          SqlStr(AStart) + ', ' + SqlStr(AEnd) + ', ' + IntToStr(AOrder) + ')');
   end;
 
-  procedure AddClass(const AName: string; ALevel: Integer);
+  { القسم يُربط بمستواه وسنته بالبحث عن المعرّف، لا بافتراض ترقيم ثابت }
+  procedure AddClass(const AName, ALevelName: string);
+  var
+    Lid, Yid : Integer;
   begin
+    Lid := LookupID(AConn, 'SELECT TOP 1 LevelID FROM GradeLevels' +
+                           ' WHERE LevelName = ' + SqlStr(ALevelName));
+    Yid := LookupID(AConn, 'SELECT TOP 1 YearID FROM SchoolYears' +
+                           ' WHERE IsCurrent = True');
+    if (Lid = 0) or (Yid = 0) then Exit;
     Exec('INSERT INTO Classes (ClassName, LevelID, YearID, Capacity) VALUES (' +
-         SqlStr(AName) + ', ' + IntToStr(ALevel) + ', 1, 40)');
+         SqlStr(AName) + ', ' + IntToStr(Lid) + ', ' + IntToStr(Yid) + ', 40)');
   end;
 
 var
-  Y : Word;
-  M, D : Word;
+  Y, M, D   : Word;
   YearLabel : string;
 begin
-  { --- المستخدم الافتراضي : admin / admin --- }
-  Exec('INSERT INTO AppUsers (UserLogin, PassHash, FullName, UserRole, IsActive, CreatedAt)' +
-       ' VALUES (' + SqlStr('admin') + ', ' + SqlStr(SHA1Hash('admin')) + ', ' +
-       SqlStr('مسؤول النظام') + ', ' + SqlStr('ADMIN') + ', True, ' +
-       SqlDate(Date) + ')');
+  { --- 1. المستخدم الافتراضي : admin / admin --- }
+  if Empty('AppUsers') then
+    Exec('INSERT INTO AppUsers (UserLogin, PassHash, FullName, UserRole,' +
+         ' IsActive, CreatedAt) VALUES (' +
+         SqlStr('admin') + ', ' + SqlStr(SHA1Hash('admin')) + ', ' +
+         SqlStr('مسؤول النظام') + ', ' + SqlStr('ADMIN') + ', True, ' +
+         SqlDate(Date) + ')');
 
-  { --- السنة الدراسية الجارية --- }
-  DecodeDate(Date, Y, M, D);
-  if M >= 9 then
-    YearLabel := IntToStr(Y) + '/' + IntToStr(Y + 1)
-  else
-    YearLabel := IntToStr(Y - 1) + '/' + IntToStr(Y);
-  Exec('INSERT INTO SchoolYears (YearLabel, StartDate, EndDate, IsCurrent) VALUES (' +
-       SqlStr(YearLabel) + ', ' + SqlDate(EncodeDate(StrToInt(Copy(YearLabel,1,4)), 9, 1)) +
-       ', ' + SqlDate(EncodeDate(StrToInt(Copy(YearLabel,6,4)), 7, 5)) + ', True)');
+  { --- 2. السنة الدراسية الجارية --- }
+  if Empty('SchoolYears') then
+  begin
+    DecodeDate(Date, Y, M, D);
+    if M >= 9 then
+      YearLabel := IntToStr(Y) + '/' + IntToStr(Y + 1)
+    else
+      YearLabel := IntToStr(Y - 1) + '/' + IntToStr(Y);
+    Exec('INSERT INTO SchoolYears (YearLabel, StartDate, EndDate, IsCurrent)' +
+         ' VALUES (' + SqlStr(YearLabel) + ', ' +
+         SqlDate(EncodeDate(StrToInt(Copy(YearLabel, 1, 4)), 9, 1)) + ', ' +
+         SqlDate(EncodeDate(StrToInt(Copy(YearLabel, 6, 4)), 7, 5)) + ', True)');
+  end;
 
-  { --- المستويات --- }
-  AddLevel('الأولى متوسط',  1);
-  AddLevel('الثانية متوسط', 2);
-  AddLevel('الثالثة متوسط', 3);
-  AddLevel('الرابعة متوسط', 4);
+  { --- 3. المستويات --- }
+  if Empty('GradeLevels') then
+  begin
+    AddLevel('الأولى متوسط',  1);
+    AddLevel('الثانية متوسط', 2);
+    AddLevel('الثالثة متوسط', 3);
+    AddLevel('الرابعة متوسط', 4);
+  end;
 
-  { --- الأقسام --- }
-  AddClass('1م1', 1);  AddClass('1م2', 1);
-  AddClass('2م1', 2);  AddClass('2م2', 2);
-  AddClass('3م1', 3);  AddClass('3م2', 3);
-  AddClass('4م1', 4);  AddClass('4م2', 4);
+  { --- 4. الأقسام --- }
+  if Empty('Classes') then
+  begin
+    AddClass('1م1', 'الأولى متوسط');   AddClass('1م2', 'الأولى متوسط');
+    AddClass('2م1', 'الثانية متوسط');  AddClass('2م2', 'الثانية متوسط');
+    AddClass('3م1', 'الثالثة متوسط');  AddClass('3م2', 'الثالثة متوسط');
+    AddClass('4م1', 'الرابعة متوسط');  AddClass('4م2', 'الرابعة متوسط');
+  end;
 
-  { --- المواد --- }
-  AddSubject('اللغة العربية', 5);
-  AddSubject('الرياضيات', 4);
-  AddSubject('اللغة الفرنسية', 3);
-  AddSubject('اللغة الإنجليزية', 2);
-  AddSubject('التربية الإسلامية', 2);
-  AddSubject('التاريخ والجغرافيا', 3);
-  AddSubject('العلوم الطبيعية', 2);
-  AddSubject('العلوم الفيزيائية', 2);
-  AddSubject('التربية المدنية', 1);
-  AddSubject('التربية البدنية والرياضية', 1);
-  AddSubject('التربية التشكيلية', 1);
-  AddSubject('التربية الموسيقية', 1);
-  AddSubject('الإعلام الآلي', 1);
+  { --- 5. المواد --- }
+  if Empty('Subjects') then
+  begin
+    AddSubject('اللغة العربية', 5);
+    AddSubject('الرياضيات', 4);
+    AddSubject('اللغة الفرنسية', 3);
+    AddSubject('اللغة الإنجليزية', 2);
+    AddSubject('التربية الإسلامية', 2);
+    AddSubject('التاريخ والجغرافيا', 3);
+    AddSubject('العلوم الطبيعية', 2);
+    AddSubject('العلوم الفيزيائية', 2);
+    AddSubject('التربية المدنية', 1);
+    AddSubject('التربية البدنية والرياضية', 1);
+    AddSubject('التربية التشكيلية', 1);
+    AddSubject('التربية الموسيقية', 1);
+    AddSubject('الإعلام الآلي', 1);
+  end;
 
-  { --- الحصص --- }
-  AddSlot('الحصة الأولى',   'صباحية', '08:00', '09:00', 1);
-  AddSlot('الحصة الثانية',  'صباحية', '09:00', '10:00', 2);
-  AddSlot('الحصة الثالثة',  'صباحية', '10:00', '11:00', 3);
-  AddSlot('الحصة الرابعة',  'صباحية', '11:00', '12:00', 4);
-  AddSlot('الحصة الخامسة',  'مسائية', '13:00', '14:00', 5);
-  AddSlot('الحصة السادسة',  'مسائية', '14:00', '15:00', 6);
-  AddSlot('الحصة السابعة',  'مسائية', '15:00', '16:00', 7);
-  AddSlot('الحصة الثامنة',  'مسائية', '16:00', '17:00', 8);
+  { --- 6. الحصص --- }
+  if Empty('TimeSlots') then
+  begin
+    AddSlot('الحصة الأولى',   'صباحية', '08:00', '09:00', 1);
+    AddSlot('الحصة الثانية',  'صباحية', '09:00', '10:00', 2);
+    AddSlot('الحصة الثالثة',  'صباحية', '10:00', '11:00', 3);
+    AddSlot('الحصة الرابعة',  'صباحية', '11:00', '12:00', 4);
+    AddSlot('الحصة الخامسة',  'مسائية', '13:00', '14:00', 5);
+    AddSlot('الحصة السادسة',  'مسائية', '14:00', '15:00', 6);
+    AddSlot('الحصة السابعة',  'مسائية', '15:00', '16:00', 7);
+    AddSlot('الحصة الثامنة',  'مسائية', '16:00', '17:00', 8);
+  end;
 
-  { --- إعدادات المؤسسة --- }
+  { --- 7. إعدادات المؤسسة (كل مفتاح على حدة) --- }
   AddSetting('SCHOOL_NAME',   'متوسطة الشهيد بالعربي أحمد');
   AddSetting('DIRECTION',     'مديرية التربية لولاية البيض');
   AddSetting('ADDRESS',       'بلدية سيدي طيفور - ولاية البيض');
@@ -619,13 +718,10 @@ begin
   AddSetting('THRESHOLD_1',   IntToStr(DEF_THRESHOLD_1));
   AddSetting('THRESHOLD_2',   IntToStr(DEF_THRESHOLD_2));
   AddSetting('THRESHOLD_3',   IntToStr(DEF_THRESHOLD_3));
-  AddSetting('LANG',          'AR');   { AR = العربية / FR = الفرنسية }
+  AddSetting('LANG',          'AR');
   AddSetting('DB_VERSION',    '1.0');
 end;
 
-{ ------------------------------------------------------------------------
-  التأكد من وجود القاعدة وإنشاؤها عند الحاجة
-  ------------------------------------------------------------------------ }
 function TableExists(AConn: TADOConnection; const ATable: string): Boolean;
 var
   L : TStringList;
@@ -690,18 +786,17 @@ begin
 
   { 4) إنشاء الهيكل إذا كانت القاعدة فارغة
        (ملف جديد، أو ملف ناقص خلّفه تشغيل سابق فاشل) }
-  if Fresh or (not TableExists(AConn, 'AppUsers')) then
-  begin
-    try
-      CreateSchema(AConn);
-      SeedReferenceData(AConn);
-    except
-      on E: Exception do
-      begin
-        ShowError('خطأ أثناء إنشاء جداول قاعدة البيانات :' + #13#10 + E.Message);
-        AConn.Connected := False;
-        Exit;
-      end;
+  { يُنفَّذان في كل تشغيل : كلاهما لا يعيد إنشاء ما هو موجود، ويكملان
+    أي نقص خلّفه تشغيل سابق فاشل (جداول بلا بيانات مثلا). }
+  try
+    CreateSchema(AConn);
+    SeedReferenceData(AConn);
+  except
+    on E: Exception do
+    begin
+      ShowError('خطأ أثناء تهيئة قاعدة البيانات :' + #13#10 + E.Message);
+      AConn.Connected := False;
+      Exit;
     end;
   end;
 
