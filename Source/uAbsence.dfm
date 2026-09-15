@@ -1,0 +1,240 @@
+object frmAbsence: TfrmAbsence
+  Left = 70
+  Top = 50
+  Caption = 'Absence'
+  ClientHeight = 640
+  ClientWidth = 1010
+  Color = clBtnFace
+  Font.Charset = ARABIC_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -14
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poScreenCenter
+  OnClose = FormClose
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 17
+  object pnlTop: TPanel
+    Left = 0
+    Top = 0
+    Width = 1010
+    Height = 100
+    Align = alTop
+    BevelOuter = bvNone
+    BorderStyle = bsSingle
+    TabOrder = 0
+    object lblDate: TLabel
+      Left = 12
+      Top = 16
+      Width = 80
+      Height = 21
+      Alignment = taRightJustify
+      AutoSize = False
+      Caption = 'Date'
+    end
+    object lblClass: TLabel
+      Left = 270
+      Top = 16
+      Width = 70
+      Height = 21
+      Alignment = taRightJustify
+      AutoSize = False
+      Caption = 'Class'
+    end
+    object lblSlot: TLabel
+      Left = 500
+      Top = 16
+      Width = 70
+      Height = 21
+      Alignment = taRightJustify
+      AutoSize = False
+      Caption = 'Slot'
+    end
+    object lblSubject: TLabel
+      Left = 12
+      Top = 54
+      Width = 80
+      Height = 21
+      Alignment = taRightJustify
+      AutoSize = False
+      Caption = 'Subject'
+    end
+    object lblTeacher: TLabel
+      Left = 350
+      Top = 54
+      Width = 80
+      Height = 21
+      Alignment = taRightJustify
+      AutoSize = False
+      Caption = 'Teacher'
+    end
+    object dtDate: TDateTimePicker
+      Left = 98
+      Top = 13
+      Width = 150
+      Height = 25
+      Date = 45000.000000000000000000
+      Format = 'dd/MM/yyyy'
+      Time = 0.000000000000000000
+      TabOrder = 0
+      OnChange = FilterChange
+    end
+    object cbClass: TComboBox
+      Left = 346
+      Top = 13
+      Width = 140
+      Height = 25
+      Style = csDropDownList
+      TabOrder = 1
+      OnChange = FilterChange
+    end
+    object cbSlot: TComboBox
+      Left = 576
+      Top = 13
+      Width = 180
+      Height = 25
+      Style = csDropDownList
+      TabOrder = 2
+      OnChange = FilterChange
+    end
+    object cbSubject: TComboBox
+      Left = 98
+      Top = 51
+      Width = 230
+      Height = 25
+      Style = csDropDownList
+      TabOrder = 3
+    end
+    object cbTeacher: TComboBox
+      Left = 436
+      Top = 51
+      Width = 230
+      Height = 25
+      Style = csDropDownList
+      TabOrder = 4
+    end
+    object btnLoad: TButton
+      Left = 780
+      Top = 24
+      Width = 200
+      Height = 40
+      Caption = 'Load'
+      Font.Charset = ARABIC_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -14
+      Font.Name = 'Tahoma'
+      Font.Style = [fsBold]
+      ParentFont = False
+      TabOrder = 5
+      OnClick = btnLoadClick
+    end
+  end
+  object grd: TStringGrid
+    Left = 0
+    Top = 100
+    Width = 1010
+    Height = 456
+    Align = alClient
+    ColCount = 7
+    DefaultDrawing = False
+    DefaultRowHeight = 24
+    FixedCols = 0
+    RowCount = 2
+    Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goColSizing]
+    TabOrder = 1
+    OnDrawCell = grdDrawCell
+    OnMouseDown = grdMouseDown
+    OnSelectCell = grdSelectCell
+  end
+  object pnlBottom: TPanel
+    Left = 0
+    Top = 556
+    Width = 1010
+    Height = 84
+    Align = alBottom
+    BevelOuter = bvNone
+    BorderStyle = bsSingle
+    TabOrder = 2
+    object lblSummary: TLabel
+      Left = 12
+      Top = 10
+      Width = 560
+      Height = 24
+      AutoSize = False
+      Caption = 'Summary'
+      Font.Charset = ARABIC_CHARSET
+      Font.Color = clHighlight
+      Font.Height = -16
+      Font.Name = 'Tahoma'
+      Font.Style = [fsBold]
+      ParentFont = False
+    end
+    object lblHint: TLabel
+      Left = 12
+      Top = 38
+      Width = 560
+      Height = 20
+      AutoSize = False
+      Caption = 'Hint'
+      Font.Charset = ARABIC_CHARSET
+      Font.Color = clGrayText
+      Font.Height = -12
+      Font.Name = 'Tahoma'
+      Font.Style = []
+      ParentFont = False
+    end
+    object btnAllPres: TButton
+      Left = 590
+      Top = 10
+      Width = 140
+      Height = 30
+      Caption = 'AllPresent'
+      TabOrder = 0
+      OnClick = btnAllPresClick
+    end
+    object btnAllAbs: TButton
+      Left = 590
+      Top = 44
+      Width = 140
+      Height = 30
+      Caption = 'AllAbsent'
+      TabOrder = 1
+      OnClick = btnAllAbsClick
+    end
+    object btnSave: TButton
+      Left = 740
+      Top = 10
+      Width = 180
+      Height = 64
+      Caption = 'Save'
+      Font.Charset = ARABIC_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -15
+      Font.Name = 'Tahoma'
+      Font.Style = [fsBold]
+      ParentFont = False
+      TabOrder = 2
+      OnClick = btnSaveClick
+    end
+    object btnPrint: TButton
+      Left = 928
+      Top = 10
+      Width = 70
+      Height = 30
+      Caption = 'Print'
+      TabOrder = 3
+      OnClick = btnPrintClick
+    end
+    object btnClose: TButton
+      Left = 928
+      Top = 44
+      Width = 70
+      Height = 30
+      Caption = 'Close'
+      TabOrder = 4
+      OnClick = btnCloseClick
+    end
+  end
+end

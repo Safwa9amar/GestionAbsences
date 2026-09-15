@@ -1,0 +1,41 @@
+# ---- Delphi build output ----
+*.dcu
+*.exe
+*.dll
+*.bpl
+*.dcp
+*.identcache
+*.local
+*.stat
+*.map
+*.drc
+*.rsm
+*.tds
+*.~*
+__history/
+__recovery/
+Win32/
+Win64/
+Debug/
+Release/
+
+# ---- IDE / user-specific project files ----
+*.dproj.local
+*.dsk
+*.otares
+
+# ---- Runtime data (the application creates these itself) ----
+Data/
+Source/Data/
+*.mdb
+*.accdb
+*.ldb
+*.laccdb
+
+# ---- Generated reports ----
+Reports/*.html
+Reports/*.htm
+!Reports/.gitkeep
+
+# ---- macOS ----
+.DS_Store
