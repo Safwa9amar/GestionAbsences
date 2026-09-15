@@ -14,6 +14,9 @@ uses
   Windows, SysUtils, Classes, ADODB, ComObj, Variants, Forms;
 
 const
+  PROV_JET    = 'Microsoft.Jet.OLEDB.4.0';
+  PROV_ACE    = 'Microsoft.ACE.OLEDB.12.0';
+
   DB_FOLDER   = 'Data';
   DB_FILENAME = 'GestionAbsences.mdb';
 
@@ -24,6 +27,9 @@ const
 
 function  DatabasePath: string;
 function  BuildConnectionString(const AFile: string): string;
+function  DetectDbFormat(const AFile: string): string;
+function  OpenDatabase(AConn: TADOConnection; const AFile: string;
+                      out AError: string): Boolean;
 function  DatabaseExists: Boolean;
 function  CreateEmptyDatabase(const AFile: string): Boolean;
 procedure CreateSchema(AConn: TADOConnection);
@@ -48,21 +54,116 @@ begin
   Result := IncludeTrailingPathDelimiter(Dir) + DB_FILENAME;
 end;
 
+function ConnStrFor(const AProvider, AFile: string): string;
+begin
+  Result := 'Provider=' + AProvider + ';Data Source=' + AFile +
+            ';Persist Security Info=False;';
+end;
+
 function BuildConnectionString(const AFile: string): string;
 begin
-  { Jet 4.0 متوفر أصلا في ويندوز (32 بت) ولا يحتاج أي تنصيب إضافي.
-    في حال كان البرنامج 64 بت أو الملف بصيغة accdb يستعمل موفر ACE. }
-  if SameText(ExtractFileExt(AFile), '.accdb') then
-    Result := 'Provider=Microsoft.ACE.OLEDB.12.0;Data Source=' + AFile +
-              ';Persist Security Info=False;'
+  { يُختار الموفر حسب الصيغة الحقيقية للملف على القرص، لا حسب الامتداد،
+    لأن موفر ACE قد ينشئ ملفا بصيغة ACCDB رغم أن امتداده mdb. }
+  if SameText(DetectDbFormat(AFile), 'ACE') then
+    Result := ConnStrFor(PROV_ACE, AFile)
+  else if SameText(ExtractFileExt(AFile), '.accdb') then
+    Result := ConnStrFor(PROV_ACE, AFile)
   else
-    Result := 'Provider=Microsoft.Jet.OLEDB.4.0;Data Source=' + AFile +
-              ';Persist Security Info=False;';
+    Result := ConnStrFor(PROV_JET, AFile);
 end;
 
 function DatabaseExists: Boolean;
 begin
   Result := FileExists(DatabasePath);
+end;
+
+{ ------------------------------------------------------------------------
+  التعرف على صيغة الملف من ترويسته :
+  ملف Jet 4  يبدأ بالعبارة  "Standard Jet DB"
+  ملف ACCDB يبدأ بالعبارة  "Standard ACE DB"
+  ------------------------------------------------------------------------ }
+function DetectDbFormat(const AFile: string): string;
+var
+  FS  : TFileStream;
+  Buf : array[0..31] of AnsiChar;
+  Sig : AnsiString;
+begin
+  Result := 'UNKNOWN';
+  if not FileExists(AFile) then
+  begin
+    Result := 'NONE';
+    Exit;
+  end;
+  try
+    FS := TFileStream.Create(AFile, fmOpenRead or fmShareDenyNone);
+    try
+      if FS.Size < 32 then Exit;
+      FS.ReadBuffer(Buf, 32);
+    finally
+      FS.Free;
+    end;
+  except
+    Exit;
+  end;
+  SetString(Sig, PAnsiChar(@Buf[4]), 15);
+  if Pos('Jet', string(Sig)) > 0 then
+    Result := 'JET'
+  else if Pos('ACE', string(Sig)) > 0 then
+    Result := 'ACE';
+end;
+
+{ ------------------------------------------------------------------------
+  فتح القاعدة : يُجرَّب الموفر المناسب ثم الآخر احتياطا
+  ------------------------------------------------------------------------ }
+function TryConnect(AConn: TADOConnection; const AFile, AProvider: string;
+  out AError: string): Boolean;
+begin
+  Result := False;
+  AError := '';
+  try
+    AConn.Connected        := False;
+    AConn.LoginPrompt      := False;
+    AConn.ConnectionString := ConnStrFor(AProvider, AFile);
+    AConn.Connected        := True;
+    Result := True;
+  except
+    on E: Exception do
+    begin
+      AError := E.Message;
+      AConn.Connected := False;
+    end;
+  end;
+end;
+
+function OpenDatabase(AConn: TADOConnection; const AFile: string;
+  out AError: string): Boolean;
+var
+  Fmt, Err1, Err2, First, Second : string;
+begin
+  Fmt := DetectDbFormat(AFile);
+  if SameText(Fmt, 'ACE') then
+  begin
+    First  := PROV_ACE;
+    Second := PROV_JET;
+  end
+  else
+  begin
+    First  := PROV_JET;
+    Second := PROV_ACE;
+  end;
+
+  Result := TryConnect(AConn, AFile, First, Err1);
+  if Result then
+  begin
+    AError := '';
+    Exit;
+  end;
+
+  Result := TryConnect(AConn, AFile, Second, Err2);
+  if Result then
+    AError := ''
+  else
+    AError := Err1 + #13#10 + Err2;
 end;
 
 { ------------------------------------------------------------------------
@@ -73,30 +174,33 @@ var
   Cat : OleVariant;
 begin
   Result := False;
+
+  { 1) محاولة بموفر Jet 4.0 }
   try
     Cat := CreateOleObject('ADOX.Catalog');
-    Cat.Create(BuildConnectionString(AFile));
+    Cat.Create(ConnStrFor(PROV_JET, AFile));
+    Cat := Unassigned;
+    Result := FileExists(AFile);
+    if Result then Exit;
+  except
+    Result := False;
+  end;
+
+  { 2) الاحتياط : موفر ACE.
+    ملاحظة مهمة : ACE ينشئ الملف بصيغة ACCDB حتى لو كان امتداده mdb،
+    لذلك تعتمد الدالة BuildConnectionString على ترويسة الملف لا على الامتداد. }
+  try
+    if FileExists(AFile) then
+      DeleteFile(PChar(AFile));
+    Cat := CreateOleObject('ADOX.Catalog');
+    Cat.Create(ConnStrFor(PROV_ACE, AFile));
     Cat := Unassigned;
     Result := FileExists(AFile);
   except
-    on E: Exception do
-    begin
-      { محاولة ثانية بموفر ACE إذا فشل Jet }
-      try
-        Cat := CreateOleObject('ADOX.Catalog');
-        Cat.Create('Provider=Microsoft.ACE.OLEDB.12.0;Data Source=' + AFile + ';');
-        Cat := Unassigned;
-        Result := FileExists(AFile);
-      except
-        Result := False;
-      end;
-    end;
+    Result := False;
   end;
 end;
 
-{ ------------------------------------------------------------------------
-  تعليمات إنشاء الجداول (MLD)
-  ------------------------------------------------------------------------ }
 procedure CreateSchema(AConn: TADOConnection);
 const
   DDL : array[0..20] of string = (
@@ -389,57 +493,86 @@ end;
 { ------------------------------------------------------------------------
   التأكد من وجود القاعدة وإنشاؤها عند الحاجة
   ------------------------------------------------------------------------ }
-function EnsureDatabase(AConn: TADOConnection): Boolean;
+function TableExists(AConn: TADOConnection; const ATable: string): Boolean;
 var
-  F : string;
+  L : TStringList;
 begin
   Result := False;
-  F := DatabasePath;
+  L := TStringList.Create;
+  try
+    try
+      AConn.GetTableNames(L, False);
+      Result := L.IndexOf(ATable) >= 0;
+    except
+      Result := False;
+    end;
+  finally
+    L.Free;
+  end;
+end;
 
+function EnsureDatabase(AConn: TADOConnection): Boolean;
+var
+  F, Err : string;
+  Fresh  : Boolean;
+begin
+  Result := False;
+  F      := DatabasePath;
+  Fresh  := False;
+
+  { 1) ملف موجود لكن ترويسته غير معروفة -> ملف تالف، يُحذف بعد موافقة المستخدم }
+  if FileExists(F) and SameText(DetectDbFormat(F), 'UNKNOWN') then
+  begin
+    if not AskYesNo('ملف قاعدة البيانات تالف أو غير صالح :' + #13#10 + F +
+                    #13#10 + #13#10 +
+                    'هل تريد حذفه وإنشاء قاعدة بيانات جديدة ؟') then
+      Exit;
+    if not DeleteFile(PChar(F)) then
+    begin
+      ShowError('تعذر حذف الملف. أغلق أي برنامج يستعمله ثم أعد المحاولة.');
+      Exit;
+    end;
+  end;
+
+  { 2) إنشاء الملف إن لم يكن موجودا }
   if not FileExists(F) then
   begin
     if not CreateEmptyDatabase(F) then
     begin
-      ShowError('تعذر إنشاء ملف قاعدة البيانات.' + #13#10 +
-                'تأكد من تثبيت موفر Microsoft Jet 4.0 أو Access Database Engine.');
+      ShowError('تعذر إنشاء ملف قاعدة البيانات :' + #13#10 + F + #13#10 + #13#10 +
+                'لم يُعثر على أي موفر (Jet 4.0 أو ACE 12.0).' + #13#10 +
+                'ثبّت Microsoft Access Database Engine 2016 Redistributable' +
+                ' (نسخة 32 بت) ثم أعد تشغيل البرنامج.');
       Exit;
     end;
+    Fresh := True;
+  end;
 
-    AConn.Connected     := False;
-    AConn.LoginPrompt   := False;
-    AConn.ConnectionString := BuildConnectionString(F);
+  { 3) الفتح : يُختار الموفر حسب الصيغة الحقيقية للملف }
+  if not OpenDatabase(AConn, F, Err) then
+  begin
+    ShowError('تعذر فتح قاعدة البيانات :' + #13#10 + F + #13#10 + #13#10 + Err);
+    Exit;
+  end;
+
+  { 4) إنشاء الهيكل إذا كانت القاعدة فارغة
+       (ملف جديد، أو ملف ناقص خلّفه تشغيل سابق فاشل) }
+  if Fresh or (not TableExists(AConn, 'AppUsers')) then
+  begin
     try
-      AConn.Connected := True;
       CreateSchema(AConn);
       SeedReferenceData(AConn);
-      Result := True;
     except
       on E: Exception do
       begin
         ShowError('خطأ أثناء إنشاء جداول قاعدة البيانات :' + #13#10 + E.Message);
         AConn.Connected := False;
-        if FileExists(F) then
-          DeleteFile(PChar(F));   { حذف الملف الناقص حتى تعاد المحاولة لاحقا }
-        Exit;
-      end;
-    end;
-  end
-  else
-  begin
-    AConn.Connected     := False;
-    AConn.LoginPrompt   := False;
-    AConn.ConnectionString := BuildConnectionString(F);
-    try
-      AConn.Connected := True;
-      Result := True;
-    except
-      on E: Exception do
-      begin
-        ShowError('تعذر فتح قاعدة البيانات :' + #13#10 + E.Message);
         Exit;
       end;
     end;
   end;
+
+  Result := True;
 end;
 
 { ------------------------------------------------------------------------
