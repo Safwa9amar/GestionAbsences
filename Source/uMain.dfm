@@ -230,6 +230,10 @@ object frmMain: TfrmMain
       object miSep2: TMenuItem
         Caption = '-'
       end
+      object miSampleData: TMenuItem
+        Caption = 'SampleData'
+        OnClick = miSampleDataClick
+      end
       object miBackup: TMenuItem
         Caption = 'Backup'
         OnClick = miBackupClick

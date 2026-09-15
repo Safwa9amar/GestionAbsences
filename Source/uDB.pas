@@ -41,6 +41,17 @@ procedure CreateSchema(AConn: TADOConnection);
 function  TableRowCount(AConn: TADOConnection; const ATable: string): Integer;
 procedure SeedReferenceData(AConn: TADOConnection);
 function  EnsureDatabase(AConn: TADOConnection): Boolean;
+type
+  { حصيلة الإدراج التجريبي }
+  TDemoCounts = record
+    Students, Teachers, Users, Absences, Justified,
+    Notices, Permits, Certificates : Integer;
+  end;
+
+function  ImportSampleStudents(AConn: TADOConnection;
+                               out AError: string): Integer;
+function  ImportDemoData(AConn: TADOConnection;
+                         out AError: string): TDemoCounts;
 function  BackupDatabase(const ATargetFile: string): Boolean;
 function  RestoreDatabase(const ASourceFile: string): Boolean;
 
@@ -799,6 +810,508 @@ end;
 { ------------------------------------------------------------------------
   النسخ الاحتياطي والاسترجاع
   ------------------------------------------------------------------------ }
+{ ------------------------------------------------------------------------
+  قائمة تلاميذ نموذجية : ناجحو شهادة التعليم المتوسط دورة 2026
+  بمتوسطة الشهيد بالعربي أحمد - سيدي طيفور (90 تلميذا).
+  الحقول : رقم التسجيل | اللقب | الاسم | تاريخ الميلاد | الجنس | المعدل | الملاحظة
+  ------------------------------------------------------------------------ }
+function ImportSampleStudents(AConn: TADOConnection; out AError: string): Integer;
+const
+  SAMPLE : array[0..89] of string = (
+    '28436701|حناشي|آية|2009-11-17|F|11,87|مقبول',
+    '28436702|مخطاري|آية|2011-06-14|F|17,90|جيد جدا',
+    '28436703|محبوبي|آية|2012-02-22|F|13,83|قريب من الجيد',
+    '28436706|بالعربي|أحمد الصديق|2010-08-20|M|11,05|مقبول',
+    '28436714|سماني|أمينة|2009-03-16|F|12,00|قريب من الجيد',
+    '28436718|بن سيرة|أيوب|2011-08-28|M|11,88|مقبول',
+    '28436801|الوزاني|إسماعيل|2011-07-23|M|10,08|مقبول',
+    '28436802|مخطاري|إشراق جهان|2011-04-05|F|12,06|قريب من الجيد',
+    '28436803|قندوزي|إيمان|2009-12-22|F|11,80|مقبول',
+    '28436805|بالحاجي|إيمان|2011-06-14|F|12,53|قريب من الجيد',
+    '28436806|مجروني|إيمان|2012-03-11|F|15,91|جيد',
+    '28436809|زيوش|إيناس|2011-10-23|F|12,78|قريب من الجيد',
+    '28436814|مقدم|اكرام|2009-12-21|F|11,52|مقبول',
+    '28436816|يعقوبي|الحسن|2011-03-11|M|13,76|قريب من الجيد',
+    '28436817|حساني|الحسين|2009-02-18|M|11,83|مقبول',
+    '28436902|حساني|بوبكر|2009-12-21|M|10,29|مقبول',
+    '28436903|زياني|بوبكر|2010-04-13|M|10,94|مقبول',
+    '28436909|بن سليمان|حليمة|2009-01-01|F|11,67|مقبول',
+    '28436910|بن سعد|حليمة|2009-08-25|F|11,91|مقبول',
+    '28436914|بلخضر|حنان|2008-09-08|F|10,45|مقبول',
+    '28436915|حدي|حنان|2011-09-02|F|11,53|مقبول',
+    '28436916|طرشي|حورية|2009-11-20|F|12,66|قريب من الجيد',
+    '28436918|حناشي|خديجة|2011-01-14|F|12,67|قريب من الجيد',
+    '28436919|مخطاري|خديجة|2011-05-14|F|12,93|قريب من الجيد',
+    '28437004|بن يوسف|رؤى تسنيم|2011-06-25|F|15,00|جيد',
+    '28437005|بوجليدة|رانيا|2010-10-07|F|11,00|مقبول',
+    '28437007|بالحاجي|رجاء نور الهدى|2009-04-18|F|11,06|مقبول',
+    '28437010|بن يمينة|رفيدة|2011-03-18|F|12,54|قريب من الجيد',
+    '28437011|حدي|رفيق|2010-09-18|M|10,48|مقبول',
+    '28437017|بوجليدة|زينب|2010-05-09|F|12,68|قريب من الجيد',
+    '28437018|بالعربي|سارة|2011-04-27|F|13,85|قريب من الجيد',
+    '28437019|بن بغداد|سجى نور اليقين|2011-09-16|F|16,23|جيد جدا',
+    '28437020|حواسين|سعاد|2011-02-03|F|13,88|قريب من الجيد',
+    '28437101|مجروني|سلسبيل قطر الندى|2011-11-25|F|13,88|قريب من الجيد',
+    '28437103|مجروني|سندس|2010-04-23|F|11,79|مقبول',
+    '28437104|بن تومي|سوسن|2011-10-18|F|13,77|قريب من الجيد',
+    '28437107|حساني|شيماء|2010-09-11|F|10,43|مقبول',
+    '28437108|زديمي|شيماء|2011-08-24|F|12,09|قريب من الجيد',
+    '28437109|بن تومي|صابرينة|2011-02-08|F|13,77|قريب من الجيد',
+    '28437111|زيوش|صورية|2011-08-31|F|12,72|قريب من الجيد',
+    '28437114|بن سعد|طه ياسين|2011-07-04|M|10,41|مقبول',
+    '28437118|نوي|عامرة|2010-10-26|F|10,88|مقبول',
+    '28437119|عبد الغاني|عامرة|2011-11-20|F|12,36|قريب من الجيد',
+    '28437201|مجروني|عبد الحق|2011-10-01|M|11,40|مقبول',
+    '28437202|بن سليمان|عبد الحكيم|2010-08-02|M|10,31|مقبول',
+    '28437210|زديمي|عبد القادر|2011-02-26|M|12,21|قريب من الجيد',
+    '28437211|بن سيرة|عبد القادر|2011-08-11|M|11,27|مقبول',
+    '28437216|حساني|عبد المطلب|2011-01-10|M|14,16|جيد',
+    '28437219|حساني|علاء الدين|2011-06-24|M|12,65|قريب من الجيد',
+    '28437303|بن نعيمة|عمر عبد السعيد|2009-09-11|M|10,11|مقبول',
+    '28437304|بوصبيع|عيسى|2011-08-19|M|10,31|مقبول',
+    '28437308|الهواري|فاطمة الزهراء|2010-11-17|F|11,37|مقبول',
+    '28437309|مخطاري|فاطمة الزهراء|2010-12-22|F|12,69|قريب من الجيد',
+    '28437310|حساني|فاطمة الزهراء|2011-08-22|F|13,13|قريب من الجيد',
+    '28437311|حميدو|فاطمة الزهراء|2011-09-13|F|12,88|قريب من الجيد',
+    '28437312|سماني|فاطمة الزهرة|2010-09-25|F|12,15|قريب من الجيد',
+    '28437314|معوش|فاطمة شيماء|2011-02-14|F|11,37|مقبول',
+    '28437315|حواسين|فاطيمة|2010-01-04|F|12,24|قريب من الجيد',
+    '28437316|بالحاجي|فاطيمة|2010-01-13|F|10,00|مقبول',
+    '28437317|بن سعد|فاطيمة|2010-04-14|F|12,62|قريب من الجيد',
+    '28437318|يعقوبي|فضيلة|2011-08-15|F|16,19|جيد جدا',
+    '28437401|بالحاجي|كنزة|2011-08-04|F|11,26|مقبول',
+    '28437405|عبد الغاني|كوثر|2011-08-15|F|13,79|قريب من الجيد',
+    '28437407|حساني|لطيفة|2010-08-25|F|13,06|قريب من الجيد',
+    '28437414|بن سعد|محمد|2011-06-01|M|12,87|قريب من الجيد',
+    '28437415|بن تومي|محمد|2011-12-13|M|11,67|مقبول',
+    '28437416|مخطاري|محمد أحمد ياسين|2010-08-26|M|10,74|مقبول',
+    '28437419|الوزاني|محمد طه|2011-10-06|M|13,35|قريب من الجيد',
+    '28437501|نوي|محمد عبد الله|2008-02-04|M|11,09|مقبول',
+    '28437502|دربالي|محمد محي الدين|2011-01-30|M|11,13|مقبول',
+    '28437507|حواسين|مروة|2010-07-24|F|12,68|قريب من الجيد',
+    '28437511|حواسين|مسعودة|2011-04-24|F|11,27|مقبول',
+    '28437513|حساني|مصطفى|2009-09-14|M|11,97|مقبول',
+    '28437516|حساني|مصطفى مداني|2011-01-31|M|12,54|قريب من الجيد',
+    '28437517|حبيبي|منى|2011-10-20|F|10,10|مقبول',
+    '28437518|بن سليمان|منير|2009-08-09|M|12,10|قريب من الجيد',
+    '28437520|حساني|نجاة|2011-07-25|F|14,62|جيد',
+    '28437603|حواسين|نور الدين|2009-05-01|M|10,78|مقبول',
+    '28437604|طراشي|نور الهدى|2011-11-01|F|14,33|جيد',
+    '28437607|حساني|هدى نور اليقين|2011-05-18|F|15,46|جيد',
+    '28437608|بن سعد|هدية|2011-01-03|F|14,98|جيد',
+    '28437610|حساني|هديل فاطمة الزهراء|2011-10-03|F|12,48|قريب من الجيد',
+    '28437612|مخطاري|هناء|2011-09-28|F|15,64|جيد',
+    '28437613|الوزاني|هيثم|2011-08-21|M|10,71|مقبول',
+    '28437615|بن سيرة|وفاء|2011-08-05|F|14,15|جيد',
+    '28437616|حدي|وفاء رهف|2011-07-09|F|10,72|مقبول',
+    '28437617|حساني|ياسر عرفات|2010-08-28|M|10,47|مقبول',
+    '28437618|بالعربي|ياسين|2009-10-13|M|12,10|قريب من الجيد',
+    '28437619|حواسين|ياسين|2010-10-17|M|13,12|قريب من الجيد',
+    '28437620|بن تومي|يحي|2008-07-26|M|10,91|مقبول'
+  );
+var
+  I, Cid1, Cid2, Cid : Integer;
+  Parts : TStringList;
+  Line, Mat, Nom, Prenom, Sexe, Moy, Men : string;
+  Bd : TDateTime;
+
+  { تقسيم السطر على الفاصل | }
+  procedure SplitLine(const ALine: string; AList: TStringList);
+  var
+    K : Integer;
+    Cur : string;
+  begin
+    AList.Clear;
+    Cur := '';
+    for K := 1 to Length(ALine) do
+      if ALine[K] = '|' then
+      begin
+        AList.Add(Cur);
+        Cur := '';
+      end
+      else
+        Cur := Cur + ALine[K];
+    AList.Add(Cur);
+  end;
+
+begin
+  Result := 0;
+  AError := '';
+
+  Cid1 := LookupID(AConn, 'SELECT TOP 1 ClassID FROM Classes WHERE ClassName = ' +
+                          SqlStr('4م1'));
+  Cid2 := LookupID(AConn, 'SELECT TOP 1 ClassID FROM Classes WHERE ClassName = ' +
+                          SqlStr('4م2'));
+  if (Cid1 = 0) and (Cid2 = 0) then
+  begin
+    AError := 'لم يُعثر على قسمي 4م1 و 4م2.';
+    Exit;
+  end;
+  if Cid1 = 0 then Cid1 := Cid2;
+  if Cid2 = 0 then Cid2 := Cid1;
+
+  Parts := TStringList.Create;
+  try
+    for I := Low(SAMPLE) to High(SAMPLE) do
+    begin
+      Line := SAMPLE[I];
+      SplitLine(Line, Parts);
+      if Parts.Count < 7 then Continue;
+
+      Mat    := Parts[0];
+      Nom    := Parts[1];
+      Prenom := Parts[2];
+      Sexe   := Parts[4];
+      Moy    := Parts[5];
+      Men    := Parts[6];
+
+      { تجاهل التلميذ إن كان رقم تسجيله مُدرجا من قبل }
+      if LookupID(AConn, 'SELECT COUNT(*) FROM Students WHERE MatriculeNat = ' +
+                         SqlStr(Mat)) > 0 then
+        Continue;
+
+      { تاريخ الميلاد بصيغة yyyy-mm-dd }
+      try
+        Bd := EncodeDate(StrToInt(Copy(Parts[3], 1, 4)),
+                         StrToInt(Copy(Parts[3], 6, 2)),
+                         StrToInt(Copy(Parts[3], 9, 2)));
+      except
+        Continue;
+      end;
+
+      { النصف الأول في 4م1 والنصف الثاني في 4م2 }
+      if I < 45 then Cid := Cid1 else Cid := Cid2;
+
+      if Sexe = 'M' then Sexe := 'ذكر' else Sexe := 'أنثى';
+
+      try
+        AConn.Execute(
+          'INSERT INTO Students (MatriculeNat, RegNumber, LastName, FirstName,' +
+          ' Gender, BirthDate, ClassID, RegimeStatus, IsActive, EnrollDate, Notes)' +
+          ' VALUES (' +
+          SqlStr(Mat) + ', ' + SqlStr(Mat) + ', ' + SqlStr(Nom) + ', ' +
+          SqlStr(Prenom) + ', ' + SqlStr(Sexe) + ', ' + SqlDate(Bd) + ', ' +
+          IntToStr(Cid) + ', ' + SqlStr('خارجي') + ', True, ' + SqlDate(Date) +
+          ', ' + SqlStr('معدل شهادة التعليم المتوسط 2026 : ' + Moy +
+                        ' - ' + Men) + ')');
+        Inc(Result);
+      except
+        on E: Exception do
+          AError := AError + Mat + ' : ' + E.Message + #13#10;
+      end;
+    end;
+  finally
+    Parts.Free;
+  end;
+end;
+
+{ ------------------------------------------------------------------------
+  بيانات تجريبية كاملة : أساتذة، مستخدمون، غيابات وتأخرات، تبريرات،
+  إشعارات، أوراق دخول وشهادات مدرسية.
+
+  التوليد شبه عشوائي لكنه ثابت (RandSeed محدد)، فتُنتج نفس البيانات في
+  كل مرة، وهو ما يناسب العرض والاختبار. كل خطوة تُتخطى إذا كان جدولها
+  يحتوي على بيانات، حتى لا تتضاعف السجلات عند إعادة الضغط على الزر.
+  ------------------------------------------------------------------------ }
+function ImportDemoData(AConn: TADOConnection;
+  out AError: string): TDemoCounts;
+const
+  TEACHERS : array[0..11] of string = (
+    'حساني|عبد الرحمان|اللغة العربية',
+    'مخطاري|نادية|الرياضيات',
+    'بن سعد|كمال|اللغة الفرنسية',
+    'حواسين|سميرة|اللغة الإنجليزية',
+    'مجروني|الطيب|التربية الإسلامية',
+    'بالحاجي|فاطمة|التاريخ والجغرافيا',
+    'زيوش|مراد|العلوم الطبيعية',
+    'الوزاني|ليلى|العلوم الفيزيائية',
+    'بن تومي|يوسف|التربية المدنية',
+    'يعقوبي|رشيد|التربية البدنية والرياضية',
+    'سماني|حورية|التربية التشكيلية',
+    'بلخضر|عمر|الإعلام الآلي');
+
+  REASONS : array[0..4] of string = (
+    'شهادة طبية', 'سبب عائلي', 'مرض', 'ظرف طارئ', 'موعد طبي');
+
+  PERMIT_REASONS : array[0..3] of string = (
+    'تأخر عن الدخول', 'موعد طبي', 'سبب عائلي', 'تأخر وسيلة النقل');
+
+  CERT_PURPOSES : array[0..2] of string = (
+    'للاستعمال فيما يخدم مصلحة المعني',
+    'لتقديمها إلى مصالح الضمان الاجتماعي',
+    'لتقديمها إلى البلدية');
+
+var
+  C            : TDemoCounts;
+  Parts        : TStringList;
+  I, J, K, N   : Integer;
+  Sid, Slot, Subj, Tch, Nb, Unj : Integer;
+  D            : TDateTime;
+  Kind, Reason, Kd : string;
+  Ids, Slots, Subjs, Tchs : TStringList;
+  T1, T2, T3   : Integer;
+
+  procedure Split(const ALine: string; AList: TStringList);
+  var
+    X : Integer;
+    Cur : string;
+  begin
+    AList.Clear;
+    Cur := '';
+    for X := 1 to Length(ALine) do
+      if ALine[X] = '|' then
+      begin
+        AList.Add(Cur);
+        Cur := '';
+      end
+      else
+        Cur := Cur + ALine[X];
+    AList.Add(Cur);
+  end;
+
+  { أعمدة جدول في قائمة نصية }
+  procedure LoadCol(const ASql: string; AList: TStringList);
+  var
+    Q : TADOQuery;
+  begin
+    AList.Clear;
+    Q := TADOQuery.Create(nil);
+    try
+      Q.Connection := AConn;
+      Q.SQL.Text := ASql;
+      try
+        Q.Open;
+        while not Q.Eof do
+        begin
+          AList.Add(Q.Fields[0].AsString);
+          Q.Next;
+        end;
+        Q.Close;
+      except
+      end;
+    finally
+      Q.Free;
+    end;
+  end;
+
+  { يوم عمل : من الأحد إلى الخميس (1=الأحد .. 6=الجمعة، 7=السبت) }
+  function IsWorkDay(ADate: TDateTime): Boolean;
+  begin
+    Result := not (DayOfWeek(ADate) in [6, 7]);
+  end;
+
+begin
+  FillChar(C, SizeOf(C), 0);
+  AError := '';
+  RandSeed := 20260915;   { توليد ثابت قابل للتكرار }
+
+  { --- 1) التلاميذ --- }
+  C.Students := ImportSampleStudents(AConn, AError);
+
+  Parts := TStringList.Create;
+  Ids   := TStringList.Create;
+  Slots := TStringList.Create;
+  Subjs := TStringList.Create;
+  Tchs  := TStringList.Create;
+  try
+    { --- 2) الأساتذة --- }
+    if TableRowCount(AConn, 'Teachers') = 0 then
+      for I := Low(TEACHERS) to High(TEACHERS) do
+      begin
+        Split(TEACHERS[I], Parts);
+        if Parts.Count < 3 then Continue;
+        Subj := LookupID(AConn, 'SELECT TOP 1 SubjectID FROM Subjects' +
+                                ' WHERE SubjectName = ' + SqlStr(Parts[2]));
+        try
+          AConn.Execute(
+            'INSERT INTO Teachers (LastName, FirstName, Phone, SubjectID)' +
+            ' VALUES (' + SqlStr(Parts[0]) + ', ' + SqlStr(Parts[1]) + ', ' +
+            SqlStr('05' + Format('%.8d', [10000000 + Random(89999999)])) + ', ' +
+            IfThenStr(Subj = 0, 'NULL', IntToStr(Subj)) + ')');
+          Inc(C.Teachers);
+        except
+        end;
+      end;
+
+    { --- 3) مستخدمون إضافيون --- }
+    if LookupID(AConn, 'SELECT COUNT(*) FROM AppUsers WHERE UserLogin = ' +
+                       SqlStr('conseiller')) = 0 then
+    begin
+      AConn.Execute('INSERT INTO AppUsers (UserLogin, PassHash, FullName,' +
+        ' UserRole, IsActive, CreatedAt) VALUES (' + SqlStr('conseiller') +
+        ', ' + SqlStr(SHA1Hash('conseiller')) + ', ' +
+        SqlStr('حواسين فاطيمة') + ', ' + SqlStr('ADVISOR') + ', True, ' +
+        SqlDate(Date) + ')');
+      Inc(C.Users);
+    end;
+    if LookupID(AConn, 'SELECT COUNT(*) FROM AppUsers WHERE UserLogin = ' +
+                       SqlStr('surveillant')) = 0 then
+    begin
+      AConn.Execute('INSERT INTO AppUsers (UserLogin, PassHash, FullName,' +
+        ' UserRole, IsActive, CreatedAt) VALUES (' + SqlStr('surveillant') +
+        ', ' + SqlStr(SHA1Hash('surveillant')) + ', ' +
+        SqlStr('بن سعد محمد') + ', ' + SqlStr('SUPERV') + ', True, ' +
+        SqlDate(Date) + ')');
+      Inc(C.Users);
+    end;
+
+    LoadCol('SELECT StudentID FROM Students WHERE IsActive = True', Ids);
+    LoadCol('SELECT SlotID FROM TimeSlots ORDER BY SortOrder', Slots);
+    LoadCol('SELECT SubjectID FROM Subjects', Subjs);
+    LoadCol('SELECT TeacherID FROM Teachers', Tchs);
+
+    if (Ids.Count = 0) or (Slots.Count = 0) then
+    begin
+      AError := AError + 'لا يوجد تلاميذ أو حصص لتوليد الغيابات.' + #13#10;
+      Result := C;
+      Exit;
+    end;
+
+    { --- 4) الغيابات والتأخرات خلال آخر 80 يوما --- }
+    if TableRowCount(AConn, 'Absences') = 0 then
+      for I := 0 to Ids.Count - 1 do
+      begin
+        Sid := StrToIntDef(Ids[I], 0);
+        if Sid = 0 then Continue;
+
+        N := Random(11);            { من 0 إلى 10 حالات لكل تلميذ }
+        for J := 1 to N do
+        begin
+          { يوم عمل عشوائي ضمن آخر 80 يوما }
+          K := 0;
+          repeat
+            D := Date - Random(80);
+            Inc(K);
+          until IsWorkDay(D) or (K > 20);
+          if not IsWorkDay(D) then Continue;
+
+          Slot := StrToIntDef(Slots[Random(Slots.Count)], 0);
+          if Slot = 0 then Continue;
+
+          if Random(100) < 18 then Kind := 'LATE' else Kind := 'ABS';
+
+          if Random(100) < 40 then
+          begin
+            Kd     := 'True';
+            Reason := REASONS[Random(High(REASONS) + 1)];
+          end
+          else
+          begin
+            Kd     := 'False';
+            Reason := '';
+          end;
+
+          if Subjs.Count > 0 then
+            Subj := StrToIntDef(Subjs[Random(Subjs.Count)], 0)
+          else
+            Subj := 0;
+          if Tchs.Count > 0 then
+            Tch := StrToIntDef(Tchs[Random(Tchs.Count)], 0)
+          else
+            Tch := 0;
+
+          try
+            { الفهرس الفريد يمنع تكرار نفس التلميذ/التاريخ/الحصة،
+              والاستثناء يُتجاهل ببساطة }
+            AConn.Execute(
+              'INSERT INTO Absences (StudentID, AbsDate, SlotID, SubjectID,' +
+              ' TeacherID, AbsKind, LateMinutes, Justified, JustifyDate,' +
+              ' JustifyReason, RecordedAt) VALUES (' +
+              IntToStr(Sid) + ', ' + SqlDate(D) + ', ' + IntToStr(Slot) + ', ' +
+              IfThenStr(Subj = 0, 'NULL', IntToStr(Subj)) + ', ' +
+              IfThenStr(Tch = 0, 'NULL', IntToStr(Tch)) + ', ' +
+              SqlStr(Kind) + ', ' +
+              IfThenStr(Kind = 'LATE', IntToStr(5 + Random(26)), '0') + ', ' +
+              Kd + ', ' +
+              IfThenStr(Kd = 'True', SqlDate(D + 1), 'NULL') + ', ' +
+              SqlStr(Reason) + ', ' + SqlDate(D) + ')');
+            Inc(C.Absences);
+            if Kd = 'True' then Inc(C.Justified);
+          except
+          end;
+        end;
+      end;
+
+    { --- 5) الإشعارات حسب العتبات --- }
+    T1 := 3; T2 := 6; T3 := 10;
+    if TableRowCount(AConn, 'Notices') = 0 then
+      for I := 0 to Ids.Count - 1 do
+      begin
+        Sid := StrToIntDef(Ids[I], 0);
+        if Sid = 0 then Continue;
+        Unj := LookupID(AConn, 'SELECT COUNT(*) FROM Absences WHERE StudentID = ' +
+                               IntToStr(Sid) + ' AND AbsKind = ' + SqlStr('ABS') +
+                               ' AND Justified = False');
+        Kind := '';
+        if Unj >= T3 then Kind := 'RAD'
+        else if Unj >= T2 then Kind := 'N2'
+        else if Unj >= T1 then Kind := 'N1';
+        if Kind = '' then Continue;
+
+        try
+          AConn.Execute(
+            'INSERT INTO Notices (StudentID, NoticeKind, NoticeNo, IssueDate,' +
+            ' MeetDate, MeetTime, NoticeTopic, AbsCount, Delivered) VALUES (' +
+            IntToStr(Sid) + ', ' + SqlStr(Kind) + ', ' +
+            SqlStr(Format('%.3d/2026', [C.Notices + 1])) + ', ' +
+            SqlDate(Date - Random(20)) + ', ' + SqlDate(Date + 3) + ', ' +
+            SqlStr('10:00') + ', ' +
+            SqlStr('إشعار بالغياب وتبرير أسباب عدم مزاولة الدراسة') + ', ' +
+            IntToStr(Unj) + ', ' + IfThenStr(Random(100) < 60, 'True', 'False') +
+            ')');
+          Inc(C.Notices);
+        except
+        end;
+      end;
+
+    { --- 6) أوراق الدخول --- }
+    if TableRowCount(AConn, 'EntryPermits') = 0 then
+      for J := 1 to 18 do
+      begin
+        Sid := StrToIntDef(Ids[Random(Ids.Count)], 0);
+        if Sid = 0 then Continue;
+        K := 0;
+        repeat
+          D := Date - Random(40);
+          Inc(K);
+        until IsWorkDay(D) or (K > 20);
+        try
+          AConn.Execute(
+            'INSERT INTO EntryPermits (StudentID, PermitDate, EntryTime, Reason)' +
+            ' VALUES (' + IntToStr(Sid) + ', ' + SqlDate(D) + ', ' +
+            SqlStr(Format('%.2d:%.2d', [8 + Random(3), Random(2) * 30])) + ', ' +
+            SqlStr(PERMIT_REASONS[Random(High(PERMIT_REASONS) + 1)]) + ')');
+          Inc(C.Permits);
+        except
+        end;
+      end;
+
+    { --- 7) الشهادات المدرسية --- }
+    if TableRowCount(AConn, 'Certificates') = 0 then
+      for J := 1 to 12 do
+      begin
+        Sid := StrToIntDef(Ids[Random(Ids.Count)], 0);
+        if Sid = 0 then Continue;
+        try
+          AConn.Execute(
+            'INSERT INTO Certificates (CertNo, StudentID, IssueDate, YearID,' +
+            ' Purpose, CopiesNo) VALUES (' + IntToStr(J) + ', ' + IntToStr(Sid) +
+            ', ' + SqlDate(Date - Random(50)) + ', ' +
+            IntToStr(LookupID(AConn, 'SELECT TOP 1 YearID FROM SchoolYears' +
+                                     ' WHERE IsCurrent = True')) + ', ' +
+            SqlStr(CERT_PURPOSES[Random(High(CERT_PURPOSES) + 1)]) + ', 3)');
+          Inc(C.Certificates);
+        except
+        end;
+      end;
+
+  finally
+    Parts.Free; Ids.Free; Slots.Free; Subjs.Free; Tchs.Free;
+  end;
+
+  Result := C;
+end;
+
 function BackupDatabase(const ATargetFile: string): Boolean;
 begin
   Result := CopyFile(PChar(DatabasePath), PChar(ATargetFile), False);

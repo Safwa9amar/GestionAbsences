@@ -349,6 +349,11 @@ var
   R_CardSubUsers    : string;
   R_CardSubSettings : string;
 
+  R_MnuSampleData                  : string;
+  R_SampleConfirm                  : string;
+  R_SampleDone                     : string;
+  R_SampleNone                     : string;
+
 { --- تسيير اللغة / Gestion de la langue --------------------------------- }
 procedure SetLanguage(ALang: TAppLang);
 procedure SetLanguageByCode(const ACode: string);
@@ -698,6 +703,14 @@ begin
   R_CardSubRefData  := 'المستويات والمواد والحصص';
   R_CardSubUsers    := 'الحسابات والصلاحيات';
   R_CardSubSettings := 'بيانات المؤسسة والعتبات';
+  R_MnuSampleData                  := 'إدراج بيانات تجريبية';
+  R_SampleConfirm                  := 'سيتم إدراج بيانات تجريبية كاملة : 90 تلميذا (ناجحو شهادة' +
+                                      ' التعليم المتوسط 2026)، أساتذة، مستخدمون،' + #13#10 +
+                                      'غيابات وتأخرات وتبريرات، إشعارات، أوراق دخول وشهادات مدرسية.' +
+                                      #13#10 + #13#10 +
+                                      'الجداول التي تحتوي على بيانات لن تُمس. هل تريد المتابعة ؟';
+  R_SampleDone                     := 'تم إدراج البيانات التجريبية :';
+  R_SampleNone                     := 'كل الجداول تحتوي على بيانات، لم يُضف أي سجل.';
 end;
 
 { ==========================================================================
@@ -1041,6 +1054,14 @@ begin
   R_CardSubRefData  := 'Niveaux, matieres, seances';
   R_CardSubUsers    := 'Comptes et droits d''acces';
   R_CardSubSettings := 'Etablissement et seuils';
+  R_MnuSampleData                  := 'Inserer des donnees de demonstration';
+  R_SampleConfirm                  := 'Des donnees de demonstration completes seront inserees : 90 eleves' +
+                                      ' (laureats du BEM 2026), enseignants, utilisateurs,' + #13#10 +
+                                      'absences, retards, justifications, avis, billets et certificats.' +
+                                      #13#10 + #13#10 +
+                                      'Les tables deja remplies ne seront pas touchees. Continuer ?';
+  R_SampleDone                     := 'Donnees de demonstration inserees :';
+  R_SampleNone                     := 'Toutes les tables contiennent deja des donnees, rien ajoute.';
 end;
 
 { ==========================================================================

@@ -36,6 +36,7 @@ type
     miLangAR        : TMenuItem;
     miLangFR        : TMenuItem;
     miSep2          : TMenuItem;
+    miSampleData    : TMenuItem;
     miBackup        : TMenuItem;
     miRestore       : TMenuItem;
     miHelp          : TMenuItem;
@@ -67,6 +68,7 @@ type
     procedure miReportsClick(Sender: TObject);
     procedure miUsersClick(Sender: TObject);
     procedure miSettingsClick(Sender: TObject);
+    procedure miSampleDataClick(Sender: TObject);
     procedure miBackupClick(Sender: TObject);
     procedure miRestoreClick(Sender: TObject);
     procedure miAboutClick(Sender: TObject);
@@ -140,6 +142,7 @@ begin
   miLangFR.Caption   := R_LangFrench;
   miLangAR.Checked   := CurrentLang = langAR;
   miLangFR.Checked   := CurrentLang = langFR;
+  miSampleData.Caption := R_MnuSampleData;
   miBackup.Caption   := R_MnuBackup;
   miRestore.Caption  := R_MnuRestore;
 
@@ -156,6 +159,7 @@ begin
   miUsers.Enabled    := Admin;
   miSettings.Enabled := Admin;
   miRestore.Enabled  := Admin;
+  miSampleData.Enabled := Admin;
   if FCards[7] <> nil then FCards[7].Enabled := Admin;
   if FCards[8] <> nil then FCards[8].Enabled := Admin;
 end;
@@ -542,6 +546,52 @@ begin
     Exit;
   end;
   ShowSettingsForm;
+  RefreshDashboard;
+end;
+
+procedure TfrmMain.miSampleDataClick(Sender: TObject);
+var
+  C   : TDemoCounts;
+  Err : string;
+  Msg : string;
+begin
+  if not dm.IsAdmin then
+  begin
+    ShowError(R_UsrNoRights);
+    Exit;
+  end;
+  if not AskYesNo(R_SampleConfirm) then Exit;
+
+  Screen.Cursor := crHourGlass;
+  try
+    C := ImportDemoData(dm.conn, Err);
+  finally
+    Screen.Cursor := crDefault;
+  end;
+
+  if Err <> '' then
+    ShowError(Err);
+
+  if (C.Students + C.Teachers + C.Users + C.Absences +
+      C.Notices + C.Permits + C.Certificates) = 0 then
+  begin
+    if Err = '' then
+      ShowInfo(R_SampleNone);
+  end
+  else
+  begin
+    Msg := R_SampleDone + #13#10 + #13#10 +
+      R_MnuStudents    + ' : ' + IntToStr(C.Students)     + #13#10 +
+      R_RefTeachers    + ' : ' + IntToStr(C.Teachers)     + #13#10 +
+      R_MnuUsers       + ' : ' + IntToStr(C.Users)        + #13#10 +
+      R_MnuAbsence     + ' : ' + IntToStr(C.Absences)     +
+        '  (' + R_AbsJustified + ' : ' + IntToStr(C.Justified) + ')' + #13#10 +
+      R_MnuNotices     + ' : ' + IntToStr(C.Notices)      + #13#10 +
+      R_MnuPermit      + ' : ' + IntToStr(C.Permits)      + #13#10 +
+      R_MnuCertificate + ' : ' + IntToStr(C.Certificates);
+    ShowInfo(Msg);
+  end;
+
   RefreshDashboard;
 end;
 
