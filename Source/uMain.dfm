@@ -39,11 +39,11 @@ object frmMain: TfrmMain
       end>
   end
   object pnlSide: TPanel
-    Left = 796
+    Left = 0
     Top = 0
     Width = 204
     Height = 601
-    Align = alRight
+    Align = alLeft
     BevelOuter = bvNone
     Color = clInactiveCaption
     ParentBackground = False

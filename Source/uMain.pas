@@ -369,7 +369,15 @@ begin
   { إعادة بناء تسميات النافذة الرئيسية واتجاهها.
     باقي النوافذ تُنشأ عند الطلب فتأخذ اللغة الجديدة تلقائيا. }
   ApplyCaptions;
-  ApplyRTL(Self);
+
+  { الاتجاه تغيّر حتما (خرجنا مبكرا لو كانت اللغة نفسها)، لذلك يُعكس
+    التخطيط في الحالتين : من اليسار إلى اليمين أو العكس. }
+  if IsRTL then
+    BiDiMode := bdRightToLeft
+  else
+    BiDiMode := bdLeftToRight;
+  MirrorFormLayout(Self);
+
   ApplyRights;
   RefreshDashboard;
   tmrTimer(nil);

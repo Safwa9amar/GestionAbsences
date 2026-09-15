@@ -9,7 +9,7 @@ interface
 
 uses
   Windows, SysUtils, Classes, Controls, Forms, Dialogs, StdCtrls, Graphics,
-  ShellAPI, Variants, DB;
+  ShellAPI, Variants, ComCtrls, DB;
 
 type
   TReportBuilder = class
@@ -41,6 +41,7 @@ function  AskYesNo(const AMsg: string): Boolean;
 
 { --- واجهة من اليمين إلى اليسار ---------------------------------------- }
 procedure ApplyRTL(AForm: TForm);
+procedure MirrorFormLayout(AForm: TForm);
 
 { --- أدوات عامة -------------------------------------------------------- }
 function  NzStr(const AValue: Variant; const ADefault: string = ''): string;
@@ -229,13 +230,84 @@ end;
   ضبط اتجاه الواجهة من اليمين إلى اليسار
   ========================================================================== }
 
+(* خاصية BiDiMode في VCL تضبط اتجاه قراءة النص وجهة شريط التمرير فقط،
+   ولا تعكس مواضع المكونات. لذلك تبقى التسمية يسار حقلها وتبقى أزرار
+   الأسفل ملتصقة باليسار، وهو ما لا يناسب واجهة عربية.
+   الإجراء التالي يعكس التخطيط فعليا. *)
+procedure MirrorChildren(AParent: TWinControl);
+var
+  I, J, W : Integer;
+  C       : TControl;
+  A       : TAnchors;
+  Kids    : TList;
+begin
+  W := AParent.ClientWidth;
+  if W <= 0 then Exit;
+
+  { تُجمع الأبناء أولا : تغيير Align أثناء المرور يعيد ترتيب القائمة }
+  Kids := TList.Create;
+  try
+    for I := 0 to AParent.ControlCount - 1 do
+      Kids.Add(AParent.Controls[I]);
+
+    for I := 0 to Kids.Count - 1 do
+    begin
+      C := TControl(Kids[I]);
+
+      { 1) الإرساء : يُبدَّل akLeft و akRight حتى يبقى المكون في جهته
+           الجديدة عند تغيير حجم النافذة }
+      A := C.Anchors;
+      if (akLeft in A) <> (akRight in A) then
+      begin
+        if akLeft in A then
+          A := A - [akLeft] + [akRight]
+        else
+          A := A - [akRight] + [akLeft];
+        C.Anchors := A;
+      end;
+
+      { 2) الموضع أو المحاذاة }
+      case C.Align of
+        alNone  : C.Left  := W - C.Left - C.Width;
+        alLeft  : C.Align := alRight;
+        alRight : C.Align := alLeft;
+      end;
+
+      { 3) التسميات : تُبدَّل المحاذاة لأن VCL يعكسها تلقائيا في الوضع
+           من اليمين إلى اليسار، فالتبديل هنا يعيدها إلى المقصود بصريا }
+      if C is TLabel then
+        case TLabel(C).Alignment of
+          taLeftJustify  : TLabel(C).Alignment := taRightJustify;
+          taRightJustify : TLabel(C).Alignment := taLeftJustify;
+        end;
+
+      { 4) ألسنة التبويب تُقلب ترتيبها ليبدأ التبويب الأول من اليمين }
+      if C is TPageControl then
+        with TPageControl(C) do
+          for J := 0 to PageCount - 1 do
+            Pages[PageCount - 1].PageIndex := J;
+
+      { 5) نزول إلى الحاويات الداخلية }
+      if (C is TWinControl) and (TWinControl(C).ControlCount > 0) then
+        MirrorChildren(TWinControl(C));
+    end;
+  finally
+    Kids.Free;
+  end;
+end;
+
+procedure MirrorFormLayout(AForm: TForm);
+begin
+  MirrorChildren(AForm);
+end;
+
 procedure ApplyRTL(AForm: TForm);
 begin
-  { اتجاه الواجهة يتبع اللغة الجارية : العربية يمين-يسار، الفرنسية يسار-يمين.
-    يكفي ضبط النافذة : الخاصية ParentBiDiMode مفعّلة افتراضيا في كل المكونات،
-    فتتلقى الرسالة CM_PARENTBIDIMODECHANGED وترث الاتجاه تلقائيا. }
   if IsRTL then
-    AForm.BiDiMode := bdRightToLeft
+  begin
+    AForm.BiDiMode := bdRightToLeft;
+    MirrorChildren(AForm);      { العكس يُطبَّق مرة واحدة عند إنشاء النافذة }
+  end
   else
     AForm.BiDiMode := bdLeftToRight;
 end;
