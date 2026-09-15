@@ -9,7 +9,7 @@ interface
 
 uses
   Windows, SysUtils, Classes, Controls, Forms, Dialogs, StdCtrls, Graphics,
-  ShellAPI, DB;
+  ShellAPI, Variants, DB;
 
 type
   TReportBuilder = class
@@ -198,13 +198,11 @@ end;
   ========================================================================== }
 
 procedure ApplyRTL(AForm: TForm);
-var
-  I : Integer;
 begin
+  { يكفي ضبط اتجاه النافذة : الخاصية ParentBiDiMode مفعّلة افتراضيا في كل
+    المكونات، فتتلقى تلقائيا الرسالة CM_PARENTBIDIMODECHANGED وترث الاتجاه.
+    (ParentBiDiMode خاصية محمية في TControl ولا يمكن ضبطها من خارج الصنف). }
   AForm.BiDiMode := bdRightToLeft;
-  for I := 0 to AForm.ComponentCount - 1 do
-    if AForm.Components[I] is TControl then
-      TControl(AForm.Components[I]).ParentBiDiMode := True;
 end;
 
 { ==========================================================================
