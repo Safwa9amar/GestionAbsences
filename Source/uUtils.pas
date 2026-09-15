@@ -38,6 +38,10 @@ var
 
 function  MediaDir: string;
 function  MediaPath(const AFileName: string): string;
+function  AssetPath(const ARelativeName: string): string;
+function  LoadPictureBitmap(const AFile: string): TBitmap;
+procedure DrawWashedCover(AImage: TImage; ASource: TBitmap;
+                          ATint: TColor; AWash: Byte);
 function  ImportMediaFile(const ASourceFile, ABaseName: string): string;
 procedure LoadImageInto(AImage: TImage; const AFileName: string);
 procedure DrawCoverImage(AImage: TImage; const AFileName: string);
@@ -86,7 +90,7 @@ uses uLang;
    في وضع Debug يكون فحص الفيض Q+ وفحص المدى R+ مفعّلين، فيتحول هذا
    الالتفاف المقصود إلى استثناء "Integer overflow".
    لذلك يُعطَّل الفحصان في هذا الجزء وحده، ثم يُستعاد وضعهما الأصلي بعده.
-   ملاحظة : التعليق هنا بصيغة (* *) لأن تعليقات { } لا تتداخل مع التوجيهات. *)
+   ملاحظة : التعليق هنا بالأقواس النجمية لأن الأقواس المعقوفة محجوزة للتوجيهات. *)
 {$IFOPT Q+}
   {$DEFINE SHA1_Q_WAS_ON}
   {$Q-}
@@ -226,6 +230,123 @@ begin
     Result := ''
   else
     Result := MediaDir + AFileName;
+end;
+
+(* ملفات الزينة المرفقة بالبرنامج (خلفيات البطاقات) تُوزَّع داخل مجلد
+   Assets بجانب الملف التنفيذي. أثناء التطوير يكون التنفيذي في مجلد
+   فرعي مثل Win32\Debug، لذلك نصعد بضع مستويات قبل الاستسلام. *)
+function AssetPath(const ARelativeName: string): string;
+const
+  UP : array[0..3] of string = ('', '..\', '..\..\', '..\..\..\');
+var
+  I, N : Integer;
+  F    : string;
+begin
+  Result := '';
+  if Trim(ARelativeName) = '' then Exit;
+  N := High(UP);
+  for I := 0 to N do
+  begin
+    F := ExpandFileName(AppDir + UP[I] + 'Assets\' + ARelativeName);
+    if FileExists(F) then
+    begin
+      Result := F;
+      Exit;
+    end;
+  end;
+end;
+
+{ قراءة ملف صورة إلى صورة نقطية بـ 24 بت. ترجع nil عند غياب الملف أو تلفه،
+  فيعمل البرنامج عندئذ بدون خلفية بدل أن يتوقف. }
+function LoadPictureBitmap(const AFile: string): TBitmap;
+var
+  Pic : TPicture;
+begin
+  Result := nil;
+  if (AFile = '') or (not FileExists(AFile)) then Exit;
+
+  Pic := TPicture.Create;
+  try
+    try
+      Pic.LoadFromFile(AFile);
+    except
+      Exit;
+    end;
+    if (Pic.Width <= 0) or (Pic.Height <= 0) then Exit;
+
+    Result := TBitmap.Create;
+    try
+      Result.PixelFormat := pf24bit;
+      Result.Width       := Pic.Width;
+      Result.Height      := Pic.Height;
+      Result.Canvas.Draw(0, 0, Pic.Graphic);
+    except
+      FreeAndNil(Result);
+    end;
+  finally
+    Pic.Free;
+  end;
+end;
+
+(* خلفية باهتة لبطاقة : تُقصّ الصورة بأسلوب cover ثم تُمزج مع لون البطاقة.
+   AWash هو وزن اللون في المزج : 0 = الصورة كما هي، 255 = لون خالص.
+   القيم العالية (نحو 230) تترك أثرا خفيفا للصورة يبقى النص فوقه مقروءا. *)
+procedure DrawWashedCover(AImage: TImage; ASource: TBitmap;
+                          ATint: TColor; AWash: Byte);
+var
+  Bmp  : TBitmap;
+  Rgb  : Cardinal;
+  TR, TG, TB, Keep : Integer;
+  DW, DH, SW, SH, NW, NH, X, Y, Row, Col : Integer;
+  Scale : Double;
+  Pix   : PByte;
+begin
+  if (AImage = nil) or (ASource = nil) then Exit;
+
+  DW := AImage.Width;
+  DH := AImage.Height;
+  SW := ASource.Width;
+  SH := ASource.Height;
+  if (DW <= 0) or (DH <= 0) or (SW <= 0) or (SH <= 0) then Exit;
+
+  { أكبر مقياس يغطي الضلعين معا، ثم يُقتطع الفائض من الجانبين }
+  Scale := DW / SW;
+  if (DH / SH) > Scale then
+    Scale := DH / SH;
+  NW := Round(SW * Scale);
+  NH := Round(SH * Scale);
+  X  := (DW - NW) div 2;
+  Y  := (DH - NH) div 2;
+
+  Rgb  := ColorToRGB(ATint);
+  TR   := GetRValue(Rgb);
+  TG   := GetGValue(Rgb);
+  TB   := GetBValue(Rgb);
+  Keep := 255 - AWash;
+
+  Bmp := TBitmap.Create;
+  try
+    Bmp.PixelFormat := pf24bit;
+    Bmp.Width       := DW;
+    Bmp.Height      := DH;
+    Bmp.Canvas.StretchDraw(Rect(X, Y, X + NW, Y + NH), ASource);
+
+    { ترتيب البايتات في pf24bit هو B ثم G ثم R }
+    for Row := 0 to DH - 1 do
+    begin
+      Pix := Bmp.ScanLine[Row];
+      for Col := 0 to DW - 1 do
+      begin
+        Pix^ := (Pix^ * Keep + TB * AWash) div 255;  Inc(Pix);
+        Pix^ := (Pix^ * Keep + TG * AWash) div 255;  Inc(Pix);
+        Pix^ := (Pix^ * Keep + TR * AWash) div 255;  Inc(Pix);
+      end;
+    end;
+
+    AImage.Picture.Assign(Bmp);
+  finally
+    Bmp.Free;
+  end;
 end;
 
 function ImageFilter: string;

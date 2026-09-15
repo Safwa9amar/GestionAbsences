@@ -33,9 +33,22 @@ uses
 
 {$R *.res}
 
+var
+  IconFile : string;
+
 begin
   Application.Initialize;
   Application.Title := R_AppShort;
+
+  { الأيقونة مضمّنة في ملف المورد، وتُقرأ كذلك من Assets\app.ico إن وُجدت،
+    حتى تبقى الأيقونة صحيحة لو أعاد المحرر توليد المورد. }
+  IconFile := AssetPath('app.ico');
+  if IconFile <> '' then
+    try
+      Application.Icon.LoadFromFile(IconFile);
+    except
+      { أيقونة تالفة أو صيغة غير مدعومة : تبقى أيقونة المورد }
+    end;
 
   { 1) وحدة المعطيات : تنشئ قاعدة البيانات عند أول تشغيل ثم تفتحها }
   Application.CreateForm(TdmMain, dm);

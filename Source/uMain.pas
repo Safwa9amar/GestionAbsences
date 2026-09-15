@@ -54,6 +54,7 @@ type
     dlgSave         : TSaveDialog;
     dlgOpen         : TOpenDialog;
     procedure FormCreate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure miExitClick(Sender: TObject);
@@ -85,11 +86,14 @@ type
     FCardSub   : array[0..8] of TLabel;
     FCardValue : array[0..8] of TLabel;
     FCardBar   : array[0..8] of TPanel;
+    FCardBack  : array[0..8] of TImage;    { الخلفية المرسومة داخل البطاقة }
+    FCardPhoto : array[0..8] of TBitmap;   { الصورة الأصلية، تُقرأ مرة واحدة }
     procedure ApplyCaptions;
     procedure ApplyRights;
     procedure BuildCards;
     procedure LayoutCards;
     procedure UpdateCardTexts;
+    procedure RenderCardBack(AIndex: Integer; AHover: Boolean);
     procedure LoadBranding;
   public
     procedure RefreshDashboard;
@@ -162,6 +166,8 @@ begin
   miSampleData.Enabled := Admin;
   if FCards[7] <> nil then FCards[7].Enabled := Admin;
   if FCards[8] <> nil then FCards[8].Enabled := Admin;
+  RenderCardBack(7, False);
+  RenderCardBack(8, False);
 end;
 
 procedure TfrmMain.FormCreate(Sender: TObject);
@@ -175,6 +181,15 @@ begin
   dlgSave.Filter := 'Access Database (*.mdb)|*.mdb';
   dlgOpen.Filter := 'Access Database (*.mdb)|*.mdb';
   dlgSave.DefaultExt := 'mdb';
+end;
+
+procedure TfrmMain.FormDestroy(Sender: TObject);
+var
+  I : Integer;
+begin
+  { الصور النقطية ليست مكوّنات، فلا يحرّرها النموذج تلقائيا }
+  for I := 0 to 8 do
+    FreeAndNil(FCardPhoto[I]);
 end;
 
 procedure TfrmMain.FormShow(Sender: TObject);
@@ -222,6 +237,24 @@ const
   CARD_TINT : array[0..8] of TColor =
     ($00FEF2EA, $00EFF7E9, $00E7F3FD, $00EFEAFC, $00F3F4E6,
      $00FCECED, $00F8F4E6, $00F4F1EF, $00FDEBF1);
+
+  { صورة خلفية لكل بطاقة، من مجلد Assets\Cards. البطاقة التي لا تجد
+    صورتها تبقى بيضاء كما كانت، فلا يتعطل شيء إذا نقص ملف. }
+  CARD_IMAGE : array[0..8] of string =
+    ('Cards\students.jpg',   { التلاميذ           }
+     'Cards\absence.jpg',    { الغيابات اليومية   }
+     'Cards\justify.jpg',    { تبرير الغيابات     }
+     'Cards\notices.jpg',    { الإشعارات          }
+     'Cards\docs.jpg',       { الوثائق            }
+     'Cards\reports.jpg',    { التقارير           }
+     'Cards\refdata.jpg',    { البيانات الأساسية  }
+     'Cards\users.jpg',      { المستخدمون         }
+     'Cards\settings.jpg');  { الإعدادات          }
+
+  { وزن اللون في مزج الخلفية : كلما ارتفع بهتت الصورة وزاد وضوح النص }
+  WASH_NORMAL   = 224;
+  WASH_HOVER    = 196;
+  WASH_DISABLED = 244;
 
 procedure TfrmMain.BuildCards;
 var
@@ -276,6 +309,19 @@ begin
     FCardBar[I].Cursor           := crHandPoint;
     FCardBar[I].Tag              := I;
     FCardBar[I].OnClick          := CardClick;
+
+    { الخلفية تُنشأ قبل التسميات : المكونات الرسومية تُرسم بترتيب إنشائها،
+      فيبقى النص فوق الصورة. }
+    FCardPhoto[I] := LoadPictureBitmap(AssetPath(CARD_IMAGE[I]));
+    if FCardPhoto[I] <> nil then
+    begin
+      FCardBack[I] := TImage.Create(Self);
+      FCardBack[I].Parent  := P;
+      FCardBack[I].Align   := alClient;
+      { معطّلة عمدا : الصورة تُرسم كما هي، لكن الفأرة تمرّ من فوقها إلى
+        اللوحة، فيبقى النقر وتأثير التمرير من شأن البطاقة وحدها. }
+      FCardBack[I].Enabled := False;
+    end;
 
     { التسميات مكونات رسومية (TGraphicControl) فلا تسرق مؤشر الفأرة
       من اللوحة، لذلك يبقى تأثير التمرير سليما. }
@@ -332,7 +378,29 @@ begin
       FCardSub[I].SetBounds  (10, 48, CW - 20, 32);
       FCardValue[I].SetBounds(10, CH - 54, CW - 20, 40);
     end;
+
+    { الصورة تُمزج بمقاس البطاقة، فتُعاد بعد كل تغيير في الأبعاد }
+    RenderCardBack(I, False);
   end;
+end;
+
+{ رسم خلفية بطاقة : باهتة في الوضع العادي، أوضح قليلا عند مرور الفأرة،
+  وشبه ممحوّة إذا كانت البطاقة معطّلة لأن المستخدم ليس مسؤولا. }
+procedure TfrmMain.RenderCardBack(AIndex: Integer; AHover: Boolean);
+var
+  Wash : Byte;
+begin
+  if (FCardBack[AIndex] = nil) or (FCardPhoto[AIndex] = nil) then Exit;
+
+  if not FCards[AIndex].Enabled then
+    Wash := WASH_DISABLED
+  else if AHover then
+    Wash := WASH_HOVER
+  else
+    Wash := WASH_NORMAL;
+
+  DrawWashedCover(FCardBack[AIndex], FCardPhoto[AIndex],
+                  CARD_TINT[AIndex], Wash);
 end;
 
 procedure TfrmMain.pnlCardsResize(Sender: TObject);
@@ -421,32 +489,49 @@ end;
 procedure TfrmMain.CardMouseEnter(Sender: TObject);
 begin
   if (Sender is TPanel) and TPanel(Sender).Enabled then
+  begin
     TPanel(Sender).Color := CARD_TINT[TPanel(Sender).Tag];
+    RenderCardBack(TPanel(Sender).Tag, True);
+  end;
 end;
 
 procedure TfrmMain.CardMouseLeave(Sender: TObject);
 begin
   if Sender is TPanel then
+  begin
     TPanel(Sender).Color := clWhite;
+    RenderCardBack(TPanel(Sender).Tag, False);
+  end;
 end;
 
 { --- شعار المؤسسة وصورتها --------------------------------------------- }
 procedure TfrmMain.LoadBranding;
 var
-  LogoFile, CoverFile : string;
+  LogoFile, CoverFile, LogoPath : string;
 begin
   LogoFile  := dm.GetSetting('LOGO_FILE', '');
   CoverFile := dm.GetSetting('COVER_FILE', '');
 
-  LoadImageInto(imgLogo, LogoFile);
-  imgLogo.Visible := (LogoFile <> '') and FileExists(MediaPath(LogoFile));
+  { شعار المؤسسة إن ضبطه المستخدم في الإعدادات، وإلا شعار البرنامج المرفق }
+  LogoPath := MediaPath(LogoFile);
+  if (LogoPath = '') or (not FileExists(LogoPath)) then
+    LogoPath := AssetPath('logo.png');
+
+  imgLogo.Picture := nil;
+  imgLogo.Visible := LogoPath <> '';
+  if imgLogo.Visible then
+    try
+      imgLogo.Picture.LoadFromFile(LogoPath);
+    except
+      imgLogo.Visible := False;
+    end;
 
   imgCover.Visible := (CoverFile <> '') and FileExists(MediaPath(CoverFile));
   if imgCover.Visible then
     DrawCoverImage(imgCover, CoverFile);
 
   { نفس الشعار يُدرج في ترويسة الوثائق المطبوعة }
-  ReportLogoFile := MediaPath(LogoFile);
+  ReportLogoFile := LogoPath;
 end;
 
 procedure TfrmMain.tmrTimer(Sender: TObject);
