@@ -16,6 +16,7 @@ object frmMain: TfrmMain
   WindowState = wsMaximized
   OnClose = FormClose
   OnCreate = FormCreate
+  OnResize = FormResize
   OnShow = FormShow
   PixelsPerInch = 96
   TextHeight = 17
@@ -38,133 +39,29 @@ object frmMain: TfrmMain
         Width = 250
       end>
   end
-  object pnlSide: TPanel
+  object pnlClient: TPanel
     Left = 0
     Top = 0
-    Width = 204
-    Height = 601
-    Align = alLeft
-    BevelOuter = bvNone
-    Color = clInactiveCaption
-    ParentBackground = False
-    TabOrder = 1
-    object btnStudents: TSpeedButton
-      Left = 12
-      Top = 20
-      Width = 180
-      Height = 45
-      Caption = 'Students'
-      Flat = True
-      Font.Charset = ARABIC_CHARSET
-      Font.Color = clWhite
-      Font.Height = -15
-      Font.Name = 'Tahoma'
-      Font.Style = [fsBold]
-      ParentFont = False
-      OnClick = miStudentsClick
-    end
-    object btnAbsence: TSpeedButton
-      Left = 12
-      Top = 75
-      Width = 180
-      Height = 45
-      Caption = 'Absence'
-      Flat = True
-      Font.Charset = ARABIC_CHARSET
-      Font.Color = clWhite
-      Font.Height = -15
-      Font.Name = 'Tahoma'
-      Font.Style = [fsBold]
-      ParentFont = False
-      OnClick = miDailyAbsClick
-    end
-    object btnJustify: TSpeedButton
-      Left = 12
-      Top = 130
-      Width = 180
-      Height = 45
-      Caption = 'Justify'
-      Flat = True
-      Font.Charset = ARABIC_CHARSET
-      Font.Color = clWhite
-      Font.Height = -15
-      Font.Name = 'Tahoma'
-      Font.Style = [fsBold]
-      ParentFont = False
-      OnClick = miJustifyClick
-    end
-    object btnNotices: TSpeedButton
-      Left = 12
-      Top = 185
-      Width = 180
-      Height = 45
-      Caption = 'Notices'
-      Flat = True
-      Font.Charset = ARABIC_CHARSET
-      Font.Color = clWhite
-      Font.Height = -15
-      Font.Name = 'Tahoma'
-      Font.Style = [fsBold]
-      ParentFont = False
-      OnClick = miNoticesClick
-    end
-    object btnReports: TSpeedButton
-      Left = 12
-      Top = 240
-      Width = 180
-      Height = 45
-      Caption = 'Reports'
-      Flat = True
-      Font.Charset = ARABIC_CHARSET
-      Font.Color = clWhite
-      Font.Height = -15
-      Font.Name = 'Tahoma'
-      Font.Style = [fsBold]
-      ParentFont = False
-      OnClick = miReportsClick
-    end
-    object btnRefData: TSpeedButton
-      Left = 12
-      Top = 295
-      Width = 180
-      Height = 45
-      Caption = 'RefData'
-      Flat = True
-      Font.Charset = ARABIC_CHARSET
-      Font.Color = clWhite
-      Font.Height = -15
-      Font.Name = 'Tahoma'
-      Font.Style = [fsBold]
-      ParentFont = False
-      OnClick = miRefDataClick
-    end
-  end
-  object pnlClient: TPanel
-    Left = 204
-    Top = 0
-    Width = 796
+    Width = 1000
     Height = 601
     Align = alClient
     BevelOuter = bvNone
     Color = clWindow
     ParentBackground = False
-    TabOrder = 2
+    TabOrder = 1
     object imgCover: TImage
       Left = 0
       Top = 0
-      Width = 796
-      Height = 140
+      Width = 1000
+      Height = 150
       Align = alTop
-      Center = True
-      Proportional = True
-      Stretch = True
       Visible = False
     end
     object pnlHeader: TPanel
       Left = 0
-      Top = 140
-      Width = 796
-      Height = 108
+      Top = 150
+      Width = 1000
+      Height = 104
       Align = alTop
       BevelOuter = bvNone
       TabOrder = 0
@@ -180,8 +77,8 @@ object frmMain: TfrmMain
       object lblSchool: TLabel
         Left = 112
         Top = 14
-        Width = 660
-        Height = 28
+        Width = 860
+        Height = 30
         Alignment = taRightJustify
         AutoSize = False
         Caption = 'School'
@@ -195,7 +92,7 @@ object frmMain: TfrmMain
       object lblYear: TLabel
         Left = 112
         Top = 46
-        Width = 660
+        Width = 860
         Height = 22
         Alignment = taRightJustify
         AutoSize = False
@@ -210,7 +107,7 @@ object frmMain: TfrmMain
       object lblWelcome: TLabel
         Left = 112
         Top = 72
-        Width = 660
+        Width = 860
         Height = 22
         Alignment = taRightJustify
         AutoSize = False
@@ -225,9 +122,9 @@ object frmMain: TfrmMain
     end
     object pnlCards: TPanel
       Left = 0
-      Top = 248
-      Width = 796
-      Height = 353
+      Top = 254
+      Width = 1000
+      Height = 347
       Align = alClient
       BevelOuter = bvNone
       Color = clWindow

@@ -6,7 +6,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  Menus, ComCtrls, ExtCtrls, StdCtrls, Buttons, ImgList;
+  Menus, ComCtrls, ExtCtrls, StdCtrls, ImgList;
 
 type
   TfrmMain = class(TForm)
@@ -41,13 +41,6 @@ type
     miHelp          : TMenuItem;
     miAbout         : TMenuItem;
     sb              : TStatusBar;
-    pnlSide         : TPanel;
-    btnStudents     : TSpeedButton;
-    btnAbsence      : TSpeedButton;
-    btnJustify      : TSpeedButton;
-    btnNotices      : TSpeedButton;
-    btnReports      : TSpeedButton;
-    btnRefData      : TSpeedButton;
     pnlClient       : TPanel;
     imgCover        : TImage;
     pnlHeader       : TPanel;
@@ -80,6 +73,7 @@ type
     procedure miLangClick(Sender: TObject);
     procedure tmrTimer(Sender: TObject);
     procedure pnlCardsResize(Sender: TObject);
+    procedure FormResize(Sender: TObject);
     procedure CardClick(Sender: TObject);
     procedure CardMouseEnter(Sender: TObject);
     procedure CardMouseLeave(Sender: TObject);
@@ -88,6 +82,7 @@ type
     FCardTitle : array[0..8] of TLabel;
     FCardSub   : array[0..8] of TLabel;
     FCardValue : array[0..8] of TLabel;
+    FCardBar   : array[0..8] of TPanel;
     procedure ApplyCaptions;
     procedure ApplyRights;
     procedure BuildCards;
@@ -151,13 +146,6 @@ begin
   miHelp.Caption     := R_MnuHelp;
   miAbout.Caption    := R_MnuAbout;
 
-  btnStudents.Caption := R_MnuStudents;
-  btnAbsence.Caption  := R_MnuDailyAbs;
-  btnJustify.Caption  := R_MnuJustify;
-  btnNotices.Caption  := R_MnuNotices;
-  btnReports.Caption  := R_MnuReports;
-  btnRefData.Caption  := R_RefTitle;
-
 end;
 
 procedure TfrmMain.ApplyRights;
@@ -214,13 +202,22 @@ end;
   ======================================================================== }
 
 const
-  { ألوان خلفية البطاقات، ثم لون التمرير فوقها }
-  CARD_BG : array[0..8] of TColor =
-    ($00F5ECE2, $00E2ECF5, $00E2F5E9, $00E9E2F5, $00F5F2E2,
-     $00E2F0F5, $00F0F0F0, $00F0F0F0, $00F0F0F0);
-  CARD_HOVER : array[0..8] of TColor =
-    ($00E8DCCB, $00CBDCE8, $00CBE8D6, $00D6CBE8, $00E8E2CB,
-     $00CBE4E8, $00E0E0E0, $00E0E0E0, $00E0E0E0);
+  { لون مميز لكل بطاقة : شريط علوي رفيع ورقم بارز.
+    الخلفية بيضاء، وعند مرور الفأرة تأخذ درجة فاتحة جدا من لون البطاقة. }
+  CARD_ACCENT : array[0..8] of TColor =
+    ($00F97F2D,   { التلاميذ            - أزرق  }
+     $004AA316,   { الغيابات اليومية    - أخضر  }
+     $000677D9,   { تبرير الغيابات      - كهرماني }
+     $00481DE1,   { الإشعارات           - وردي  }
+     $0088940D,   { الوثائق             - فيروزي }
+     $00E5464F,   { التقارير            - بنفسجي }
+     $00B29108,   { البيانات الأساسية   - سماوي }
+     $00695547,   { المستخدمون          - رمادي }
+     $00ED377C);  { الإعدادات           - أرجواني }
+
+  CARD_TINT : array[0..8] of TColor =
+    ($00FEF2EA, $00EFF7E9, $00E7F3FD, $00EFEAFC, $00F3F4E6,
+     $00FCECED, $00F8F4E6, $00F4F1EF, $00FDEBF1);
 
 procedure TfrmMain.BuildCards;
 var
@@ -255,7 +252,7 @@ begin
     P.Parent           := pnlCards;
     P.BevelOuter       := bvNone;
     P.BorderStyle      := bsSingle;
-    P.Color            := CARD_BG[I];
+    P.Color            := clWhite;
     P.ParentBackground := False;
     P.Cursor           := crHandPoint;
     P.Tag              := I;
@@ -264,12 +261,24 @@ begin
     P.OnMouseLeave     := CardMouseLeave;
     FCards[I] := P;
 
+    { شريط علوي رفيع بلون البطاقة }
+    FCardBar[I] := TPanel.Create(Self);
+    FCardBar[I].Parent           := P;
+    FCardBar[I].Align            := alTop;
+    FCardBar[I].Height           := 5;
+    FCardBar[I].BevelOuter       := bvNone;
+    FCardBar[I].Color            := CARD_ACCENT[I];
+    FCardBar[I].ParentBackground := False;
+    FCardBar[I].Cursor           := crHandPoint;
+    FCardBar[I].Tag              := I;
+    FCardBar[I].OnClick          := CardClick;
+
     { التسميات مكونات رسومية (TGraphicControl) فلا تسرق مؤشر الفأرة
       من اللوحة، لذلك يبقى تأثير التمرير سليما. }
-    FCardTitle[I] := NewLabel(P, -16, True,  clWindowText, I);
-    FCardSub[I]   := NewLabel(P, -11, False, clGrayText,   I);
+    FCardTitle[I] := NewLabel(P, -17, True,  $00403020,        I);
+    FCardSub[I]   := NewLabel(P, -12, False, clGrayText,       I);
     FCardSub[I].WordWrap := True;
-    FCardValue[I] := NewLabel(P, -27, True,  clHighlight,  I);
+    FCardValue[I] := NewLabel(P, -30, True,  CARD_ACCENT[I],   I);
   end;
   LayoutCards;
 end;
@@ -289,7 +298,7 @@ begin
 
   CW := (AvailW - 2 * GAP) div 3;
   CH := (AvailH - 2 * GAP) div 3;
-  if CH > 160 then CH := 160;
+  if CH > 175 then CH := 175;
 
   for I := 0 to 8 do
   begin
@@ -304,14 +313,34 @@ begin
     Y := MARGIN + Row * (CH + GAP);
 
     FCards[I].SetBounds(X, Y, CW, CH);
-    FCardTitle[I].SetBounds(8, 14, CW - 16, 24);
-    FCardSub[I].SetBounds(8, 40, CW - 16, 34);
-    FCardValue[I].SetBounds(8, CH - 48, CW - 16, 36);
+
+    { البطاقات التي لا تحمل رقما يُتوسَّط نصها عموديا بدل ترك فراغ أسفلها }
+    if Trim(FCardValue[I].Caption) = '' then
+    begin
+      FCardValue[I].Visible := False;
+      FCardTitle[I].SetBounds(10, (CH - 52) div 2,      CW - 20, 26);
+      FCardSub[I].SetBounds  (10, (CH - 52) div 2 + 28, CW - 20, 34);
+    end
+    else
+    begin
+      FCardValue[I].Visible := True;
+      FCardTitle[I].SetBounds(10, 20, CW - 20, 26);
+      FCardSub[I].SetBounds  (10, 48, CW - 20, 32);
+      FCardValue[I].SetBounds(10, CH - 54, CW - 20, 40);
+    end;
   end;
 end;
 
 procedure TfrmMain.pnlCardsResize(Sender: TObject);
 begin
+  LayoutCards;
+end;
+
+procedure TfrmMain.FormResize(Sender: TObject);
+begin
+  { صورة الواجهة تُرسم بمقاس المساحة، فتُعاد عند كل تغيير حجم }
+  if imgCover.Visible then
+    DrawCoverImage(imgCover, dm.GetSetting('COVER_FILE', ''));
   LayoutCards;
 end;
 
@@ -364,6 +393,9 @@ begin
   FCardTitle[8].Caption := R_MnuSettings;
   FCardSub[8].Caption   := R_CardSubSettings;
   FCardValue[8].Caption := '';
+
+  { الأرقام أصبحت معروفة الآن، فيُعاد الترتيب لضبط البطاقات بلا رقم }
+  LayoutCards;
 end;
 
 procedure TfrmMain.CardClick(Sender: TObject);
@@ -385,13 +417,13 @@ end;
 procedure TfrmMain.CardMouseEnter(Sender: TObject);
 begin
   if (Sender is TPanel) and TPanel(Sender).Enabled then
-    TPanel(Sender).Color := CARD_HOVER[TPanel(Sender).Tag];
+    TPanel(Sender).Color := CARD_TINT[TPanel(Sender).Tag];
 end;
 
 procedure TfrmMain.CardMouseLeave(Sender: TObject);
 begin
   if Sender is TPanel then
-    TPanel(Sender).Color := CARD_BG[TPanel(Sender).Tag];
+    TPanel(Sender).Color := clWhite;
 end;
 
 { --- شعار المؤسسة وصورتها --------------------------------------------- }
@@ -405,8 +437,9 @@ begin
   LoadImageInto(imgLogo, LogoFile);
   imgLogo.Visible := (LogoFile <> '') and FileExists(MediaPath(LogoFile));
 
-  LoadImageInto(imgCover, CoverFile);
   imgCover.Visible := (CoverFile <> '') and FileExists(MediaPath(CoverFile));
+  if imgCover.Visible then
+    DrawCoverImage(imgCover, CoverFile);
 
   { نفس الشعار يُدرج في ترويسة الوثائق المطبوعة }
   ReportLogoFile := MediaPath(LogoFile);

@@ -40,6 +40,7 @@ function  MediaDir: string;
 function  MediaPath(const AFileName: string): string;
 function  ImportMediaFile(const ASourceFile, ABaseName: string): string;
 procedure LoadImageInto(AImage: TImage; const AFileName: string);
+procedure DrawCoverImage(AImage: TImage; const AFileName: string);
 function  FileToBase64(const AFile: string): string;
 function  FileToDataURI(const AFile: string): string;
 function  ImageFilter: string;
@@ -281,6 +282,62 @@ begin
     AImage.Picture.LoadFromFile(F);
   except
     AImage.Picture := nil;
+  end;
+end;
+
+(* رسم صورة الواجهة بحيث تغطي كامل المساحة دون تشويه النِّسب :
+   تُكبَّر الصورة بأكبر مقياس يغطي العرض والارتفاع معا، ثم يُقتطع الفائض
+   من الجانبين. هو سلوك background-size: cover نفسه. *)
+procedure DrawCoverImage(AImage: TImage; const AFileName: string);
+var
+  Src   : TPicture;
+  Bmp   : TBitmap;
+  F     : string;
+  SW, SH, DW, DH, NW, NH, X, Y : Integer;
+  Scale : Double;
+begin
+  if AImage = nil then Exit;
+  AImage.Picture := nil;
+
+  F := MediaPath(AFileName);
+  if (F = '') or (not FileExists(F)) then Exit;
+
+  DW := AImage.Width;
+  DH := AImage.Height;
+  if (DW <= 0) or (DH <= 0) then Exit;
+
+  Src := TPicture.Create;
+  try
+    try
+      Src.LoadFromFile(F);
+    except
+      Exit;
+    end;
+    SW := Src.Width;
+    SH := Src.Height;
+    if (SW <= 0) or (SH <= 0) then Exit;
+
+    Scale := DW / SW;
+    if (DH / SH) > Scale then
+      Scale := DH / SH;
+
+    NW := Round(SW * Scale);
+    NH := Round(SH * Scale);
+    X  := (DW - NW) div 2;
+    Y  := (DH - NH) div 2;
+
+    Bmp := TBitmap.Create;
+    try
+      Bmp.PixelFormat := pf24bit;
+      Bmp.Width       := DW;
+      Bmp.Height      := DH;
+      Bmp.Canvas.StretchDraw(Rect(X, Y, X + NW, Y + NH), Src.Graphic);
+      AImage.Picture.Assign(Bmp);
+    finally
+      Bmp.Free;
+    end;
+  finally
+    Src.Free;
   end;
 end;
 
