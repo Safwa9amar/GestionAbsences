@@ -73,7 +73,7 @@ begin
   lblThr2.Caption    := R_SetThr2;
   lblThr3.Caption    := R_SetThr3;
   lblThrHint.Caption :=
-    'عدد الغيابات غير المبررة التي يقترح عندها البرنامج تحرير الوثيقة.';
+    R_SetThrHint;
   btnSave.Caption    := R_Save;
   btnClose.Caption   := R_Close;
 end;
@@ -110,7 +110,7 @@ begin
 
   if (T1 <= 0) or (T2 <= T1) or (T3 <= T2) then
   begin
-    ShowError('يجب أن تكون العتبات متزايدة : العتبة 1 < العتبة 2 < العتبة 3.');
+    ShowError(R_SetThrOrder);
     Exit;
   end;
 

@@ -118,7 +118,7 @@ begin
   btnSave.Caption    := R_AbsSaveAll;
   btnPrint.Caption   := R_MnuDailyRep;
   btnClose.Caption   := R_Close;
-  lblHint.Caption    := 'انقر على خانة "الحالة" أو "مبرر" لتغيير القيمة.';
+  lblHint.Caption    := R_AbsHint;
 end;
 
 procedure TfrmAbsence.FormCreate(Sender: TObject);
@@ -185,7 +185,7 @@ begin
   grd.ColWidths[COL_JUST]   := 70;
   grd.ColWidths[COL_REASON] := 280;
 
-  grd.Cells[COL_NUM,    0] := 'الرقم';
+  grd.Cells[COL_NUM,    0] := R_ColNum;
   grd.Cells[COL_LAST,   0] := R_StuLastName;
   grd.Cells[COL_FIRST,  0] := R_StuFirstName;
   grd.Cells[COL_STATE,  0] := R_AbsState;
@@ -236,7 +236,7 @@ end;
 procedure TfrmAbsence.FilterChange(Sender: TObject);
 begin
   FLoaded := False;
-  lblSummary.Caption := 'اضغط على زر عرض قائمة التلاميذ.';
+  lblSummary.Caption := R_AbsPressLoad;
 end;
 
 { ------------------------------------------------------------------------
@@ -568,13 +568,13 @@ begin
     Exit;
   end;
 
-  Rep := TReportBuilder.Create('التقرير اليومي لغيابات التلاميذ');
+  Rep := TReportBuilder.Create(R_RepDailyAbs);
   try
     Rep.Header(dm.GetSetting('SCHOOL_NAME', R_SchoolDefault),
                dm.GetSetting('DIRECTION', ''),
                FormatArabicDate(dtDate.Date));
-    Rep.OpenTable(['الرقم', R_StuClass, R_StuLastName, R_StuFirstName,
-                   R_AbsSlot, 'التوقيت', R_AbsSubject, R_AbsState,
+    Rep.OpenTable([R_ColNum, R_StuClass, R_StuLastName, R_StuFirstName,
+                   R_AbsSlot, R_ColTime, R_AbsSubject, R_AbsState,
                    R_AbsMinutes, R_AbsJustified]);
     N := 0;
     while not Q.Eof do
@@ -595,8 +595,8 @@ begin
       Q.Next;
     end;
     Rep.CloseTable;
-    Rep.Paragraph('مجموع الحالات المسجلة في هذا اليوم : <b>' + IntToStr(N) + '</b>');
-    Rep.Signature('مشرف التربية', 'مستشار التربية : ' + dm.GetSetting('ADVISOR', ''));
+    Rep.Paragraph(R_AbsDayTotal + '<b>' + IntToStr(N) + '</b>');
+    Rep.Signature(R_SignSupervisor, R_SignAdvisor + dm.GetSetting('ADVISOR', ''));
     Rep.SaveAndOpen('Rapport_Journalier.html');
   finally
     Rep.Free;

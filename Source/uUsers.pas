@@ -95,7 +95,7 @@ begin
   lblPass.Caption   := R_UsrNewPass;
   lblPass2.Caption  := R_UsrConfirmPass;
   chkActive.Caption := R_UsrActive;
-  lblHint.Caption   := 'اترك خانتي كلمة المرور فارغتين للإبقاء على الكلمة الحالية.';
+  lblHint.Caption   := R_UsrPassHint;
   btnNew.Caption    := R_New;
   btnSave.Caption   := R_Save;
   btnDelete.Caption := R_Delete;
@@ -137,7 +137,7 @@ begin
   AddCol('FullName',  R_UsrFullName, 240);
   AddCol('UserRole',  R_UsrRole,     140);
   AddCol('IsActive',  R_UsrActive,    90);
-  AddCol('CreatedAt', 'تاريخ الإنشاء',130);
+  AddCol('CreatedAt', R_UsrCreatedAt,130);
 end;
 
 procedure TfrmUsers.ClearFields;
@@ -206,7 +206,7 @@ begin
 
   if (FUserID = 0) and (edPass.Text = '') then
   begin
-    ShowError('يجب تحديد كلمة مرور للمستخدم الجديد.');
+    ShowError(R_UsrPassRequired);
     edPass.SetFocus;
     Exit;
   end;
@@ -224,7 +224,7 @@ begin
   if dm.ScalarInt('SELECT COUNT(*) FROM AppUsers WHERE UserLogin = ' +
        SqlStr(Login) + ' AND UserID <> ' + IntToStr(FUserID), 0) > 0 then
   begin
-    ShowError('اسم المستخدم مستعمل من قبل.');
+    ShowError(R_UsrLoginTaken);
     edLogin.SetFocus;
     Exit;
   end;
@@ -271,7 +271,7 @@ begin
 
   if Id = dm.CurrentUserID then
   begin
-    ShowError('لا يمكنك حذف حسابك الخاص أثناء استعماله.');
+    ShowError(R_UsrNoSelfDelete);
     Exit;
   end;
 

@@ -134,7 +134,7 @@ begin
   tabSlots.Caption   := R_RefSlots;
   tabYears.Caption   := R_RefYears;
 
-  btnSetCurrent.Caption := 'تعيين كسنة جارية';
+  btnSetCurrent.Caption := R_YrSetCurrent;
   btnClose.Caption      := R_Close;
 
   lblClsName.Caption  := R_ClsName;
@@ -341,7 +341,7 @@ begin
                      IntToStr(FClassID), 0);
   if Nb > 0 then
   begin
-    ShowError('لا يمكن حذف هذا القسم : يوجد به ' + IntToStr(Nb) + ' تلميذ.');
+    ShowError(R_ClsDelHasStu1 + IntToStr(Nb) + R_SuffixStudents);
     Exit;
   end;
   if not AskYesNo(R_MsgConfirmDel) then Exit;

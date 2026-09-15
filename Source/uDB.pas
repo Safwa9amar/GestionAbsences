@@ -11,11 +11,12 @@
 interface
 
 uses
-  Windows, SysUtils, Classes, ADODB, ComObj, Variants, Forms;
+  Windows, SysUtils, Classes, ADODB, ComObj, Variants, Forms, Registry;
 
 const
   PROV_JET    = 'Microsoft.Jet.OLEDB.4.0';
   PROV_ACE    = 'Microsoft.ACE.OLEDB.12.0';
+  PROV_ACE16  = 'Microsoft.ACE.OLEDB.16.0';
 
   DB_FOLDER   = 'Data';
   DB_FILENAME = 'GestionAbsences.mdb';
@@ -28,6 +29,9 @@ const
 function  DatabasePath: string;
 function  BuildConnectionString(const AFile: string): string;
 function  DetectDbFormat(const AFile: string): string;
+function  ProviderInstalled(const AProgID: string): Boolean;
+function  AdoxAvailable: Boolean;
+function  ProviderDiagnostics: string;
 function  OpenDatabase(AConn: TADOConnection; const AFile: string;
                       out AError: string): Boolean;
 function  DatabaseExists: Boolean;
@@ -54,6 +58,60 @@ begin
   Result := IncludeTrailingPathDelimiter(Dir) + DB_FILENAME;
 end;
 
+{ ------------------------------------------------------------------------
+  تشخيص المكونات المتوفرة على الجهاز
+  Diagnostic des composants presents sur la machine
+  ------------------------------------------------------------------------ }
+
+{ الموفر مسجَّل إذا وُجد مفتاحه في HKEY_CLASSES_ROOT ومعه CLSID }
+function ProviderInstalled(const AProgID: string): Boolean;
+var
+  Reg : TRegistry;
+begin
+  Result := False;
+  Reg := TRegistry.Create(KEY_READ);
+  try
+    Reg.RootKey := HKEY_CLASSES_ROOT;
+    if Reg.OpenKeyReadOnly(AProgID) then
+    begin
+      Reg.CloseKey;
+      Result := Reg.KeyExists(AProgID + '\CLSID');
+    end;
+  except
+    Result := False;
+  end;
+  Reg.Free;
+end;
+
+{ ADOX ضروري لإنشاء ملف قاعدة بيانات جديد }
+function AdoxAvailable: Boolean;
+var
+  Cat : OleVariant;
+begin
+  try
+    Cat := CreateOleObject('ADOX.Catalog');
+    Cat := Unassigned;
+    Result := True;
+  except
+    Result := False;
+  end;
+end;
+
+function ProviderDiagnostics: string;
+
+  function YN(AOk: Boolean): string;
+  begin
+    if AOk then Result := 'موجود / present' else Result := 'غير موجود / absent';
+  end;
+
+begin
+  Result :=
+    'ADOX (ADOX.Catalog)     : ' + YN(AdoxAvailable)                + #13#10 +
+    PROV_JET   + ' : ' + YN(ProviderInstalled(PROV_JET))   + #13#10 +
+    PROV_ACE   + ' : ' + YN(ProviderInstalled(PROV_ACE))   + #13#10 +
+    PROV_ACE16 + ' : ' + YN(ProviderInstalled(PROV_ACE16));
+end;
+
 function ConnStrFor(const AProvider, AFile: string): string;
 begin
   Result := 'Provider=' + AProvider + ';Data Source=' + AFile +
@@ -64,10 +122,14 @@ function BuildConnectionString(const AFile: string): string;
 begin
   { يُختار الموفر حسب الصيغة الحقيقية للملف على القرص، لا حسب الامتداد،
     لأن موفر ACE قد ينشئ ملفا بصيغة ACCDB رغم أن امتداده mdb. }
-  if SameText(DetectDbFormat(AFile), 'ACE') then
-    Result := ConnStrFor(PROV_ACE, AFile)
-  else if SameText(ExtractFileExt(AFile), '.accdb') then
-    Result := ConnStrFor(PROV_ACE, AFile)
+  if SameText(DetectDbFormat(AFile), 'ACE') or
+     SameText(ExtractFileExt(AFile), '.accdb') then
+  begin
+    if ProviderInstalled(PROV_ACE) then
+      Result := ConnStrFor(PROV_ACE, AFile)
+    else
+      Result := ConnStrFor(PROV_ACE16, AFile);
+  end
   else
     Result := ConnStrFor(PROV_JET, AFile);
 end;
@@ -138,32 +200,175 @@ end;
 function OpenDatabase(AConn: TADOConnection; const AFile: string;
   out AError: string): Boolean;
 var
-  Fmt, Err1, Err2, First, Second : string;
-begin
-  Fmt := DetectDbFormat(AFile);
-  if SameText(Fmt, 'ACE') then
+  Errs : string;
+
+  function Attempt(const AProvider: string): Boolean;
+  var
+    E : string;
   begin
-    First  := PROV_ACE;
-    Second := PROV_JET;
+    Result := TryConnect(AConn, AFile, AProvider, E);
+    if (not Result) and (E <> '') then
+      Errs := Errs + AProvider + ' : ' + E + #13#10;
+  end;
+
+begin
+  Errs   := '';
+  Result := False;
+
+  { الموفر المناسب لصيغة الملف أولا، ثم البقية احتياطا }
+  if SameText(DetectDbFormat(AFile), 'ACE') then
+  begin
+    if Attempt(PROV_ACE)   then Result := True
+    else if Attempt(PROV_ACE16) then Result := True
+    else if Attempt(PROV_JET)   then Result := True;
   end
   else
   begin
-    First  := PROV_JET;
-    Second := PROV_ACE;
+    if Attempt(PROV_JET)   then Result := True
+    else if Attempt(PROV_ACE)   then Result := True
+    else if Attempt(PROV_ACE16) then Result := True;
   end;
 
-  Result := TryConnect(AConn, AFile, First, Err1);
-  if Result then
-  begin
-    AError := '';
-    Exit;
-  end;
-
-  Result := TryConnect(AConn, AFile, Second, Err2);
   if Result then
     AError := ''
   else
-    AError := Err1 + #13#10 + Err2;
+    AError := Errs;
+end;
+
+{ ------------------------------------------------------------------------
+  إنشاء ملف قاعدة بيانات فارغ باستعمال ADOX
+  ------------------------------------------------------------------------ }
+function CreateEmptyDatabase(const AFile: string): Boolean;
+
+  { محاولة الإنشاء بموفر واحد. لا تُقبل النتيجة إلا إذا كان الملف الناتج
+    يحمل ترويسة صالحة، حتى لا يبقى ملف ناقص يعطّل التشغيل القادم. }
+  function TryCreate(const AProvider: string): Boolean;
+  var
+    Cat : OleVariant;
+  begin
+    Result := False;
+    try
+      if FileExists(AFile) then
+        DeleteFile(PChar(AFile));
+      Cat := CreateOleObject('ADOX.Catalog');
+      Cat.Create(ConnStrFor(AProvider, AFile));
+      Cat := Unassigned;
+      Result := FileExists(AFile) and
+                (not SameText(DetectDbFormat(AFile), 'UNKNOWN'));
+    except
+      Result := False;
+    end;
+  end;
+
+begin
+  Result := TryCreate(PROV_JET);
+  if not Result then Result := TryCreate(PROV_ACE);
+  if not Result then Result := TryCreate(PROV_ACE16);
+
+  { لا نترك خلفنا ملفا تالفا }
+  if (not Result) and FileExists(AFile) then
+    DeleteFile(PChar(AFile));
+end;
+
+function DatabaseExists: Boolean;
+begin
+  Result := FileExists(DatabasePath);
+end;
+
+{ ------------------------------------------------------------------------
+  التعرف على صيغة الملف من ترويسته :
+  ملف Jet 4  يبدأ بالعبارة  "Standard Jet DB"
+  ملف ACCDB يبدأ بالعبارة  "Standard ACE DB"
+  ------------------------------------------------------------------------ }
+function DetectDbFormat(const AFile: string): string;
+var
+  FS  : TFileStream;
+  Buf : array[0..31] of AnsiChar;
+  Sig : AnsiString;
+begin
+  Result := 'UNKNOWN';
+  if not FileExists(AFile) then
+  begin
+    Result := 'NONE';
+    Exit;
+  end;
+  try
+    FS := TFileStream.Create(AFile, fmOpenRead or fmShareDenyNone);
+    try
+      if FS.Size < 32 then Exit;
+      FS.ReadBuffer(Buf, 32);
+    finally
+      FS.Free;
+    end;
+  except
+    Exit;
+  end;
+  SetString(Sig, PAnsiChar(@Buf[4]), 15);
+  if Pos('Jet', string(Sig)) > 0 then
+    Result := 'JET'
+  else if Pos('ACE', string(Sig)) > 0 then
+    Result := 'ACE';
+end;
+
+{ ------------------------------------------------------------------------
+  فتح القاعدة : يُجرَّب الموفر المناسب ثم الآخر احتياطا
+  ------------------------------------------------------------------------ }
+function TryConnect(AConn: TADOConnection; const AFile, AProvider: string;
+  out AError: string): Boolean;
+begin
+  Result := False;
+  AError := '';
+  try
+    AConn.Connected        := False;
+    AConn.LoginPrompt      := False;
+    AConn.ConnectionString := ConnStrFor(AProvider, AFile);
+    AConn.Connected        := True;
+    Result := True;
+  except
+    on E: Exception do
+    begin
+      AError := E.Message;
+      AConn.Connected := False;
+    end;
+  end;
+end;
+
+function OpenDatabase(AConn: TADOConnection; const AFile: string;
+  out AError: string): Boolean;
+var
+  Errs : string;
+
+  function Attempt(const AProvider: string): Boolean;
+  var
+    E : string;
+  begin
+    Result := TryConnect(AConn, AFile, AProvider, E);
+    if (not Result) and (E <> '') then
+      Errs := Errs + AProvider + ' : ' + E + #13#10;
+  end;
+
+begin
+  Errs   := '';
+  Result := False;
+
+  { الموفر المناسب لصيغة الملف أولا، ثم البقية احتياطا }
+  if SameText(DetectDbFormat(AFile), 'ACE') then
+  begin
+    if Attempt(PROV_ACE)   then Result := True
+    else if Attempt(PROV_ACE16) then Result := True
+    else if Attempt(PROV_JET)   then Result := True;
+  end
+  else
+  begin
+    if Attempt(PROV_JET)   then Result := True
+    else if Attempt(PROV_ACE)   then Result := True
+    else if Attempt(PROV_ACE16) then Result := True;
+  end;
+
+  if Result then
+    AError := ''
+  else
+    AError := Errs;
 end;
 
 { ------------------------------------------------------------------------
@@ -540,9 +745,11 @@ begin
     if not CreateEmptyDatabase(F) then
     begin
       ShowError('تعذر إنشاء ملف قاعدة البيانات :' + #13#10 + F + #13#10 + #13#10 +
-                'لم يُعثر على أي موفر (Jet 4.0 أو ACE 12.0).' + #13#10 +
-                'ثبّت Microsoft Access Database Engine 2016 Redistributable' +
-                ' (نسخة 32 بت) ثم أعد تشغيل البرنامج.');
+                'حالة المكونات على هذا الجهاز :' + #13#10 +
+                ProviderDiagnostics + #13#10 + #13#10 +
+                'الحل : ثبّت "Microsoft Access Database Engine 2016' +
+                ' Redistributable" نسخة 32 بت (AccessDatabaseEngine.exe)' +
+                #13#10 + 'ثم أعد تشغيل البرنامج.');
       Exit;
     end;
     Fresh := True;

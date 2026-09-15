@@ -160,7 +160,7 @@ begin
     ' LEFT JOIN Subjects sub ON a.SubjectID = sub.SubjectID' +
     W + ' ORDER BY a.AbsDate DESC, c.ClassName, s.LastName');
 
-  lblCount.Caption := 'عدد السجلات : ' + IntToStr(dm.qAbsences.RecordCount);
+  lblCount.Caption := R_JusCount + IntToStr(dm.qAbsences.RecordCount);
 end;
 
 procedure TfrmJustify.btnApplyClick(Sender: TObject);
@@ -235,7 +235,7 @@ begin
     end;
 
     LoadData;
-    ShowInfo('تمت معالجة ' + IntToStr(N) + ' سجل.');
+    ShowInfo(R_JusProcessed + IntToStr(N) + R_SuffixRecords);
   finally
     Ids.Free;
   end;
@@ -250,14 +250,14 @@ begin
     ShowInfo(R_MsgNoRecord);
     Exit;
   end;
-  Reason := 'شهادة طبية';
+  Reason := R_JusMedCert;
   if not InputQuery(R_JusMarkJust, R_JusReasonAsk, Reason) then Exit;
   ApplyJustification(True, Reason);
 end;
 
 procedure TfrmJustify.btnUnjustClick(Sender: TObject);
 begin
-  if not AskYesNo('هل تريد إلغاء تبرير السجلات المحددة ؟') then Exit;
+  if not AskYesNo(R_JusConfirmUnjust) then Exit;
   ApplyJustification(False, '');
 end;
 
@@ -278,10 +278,10 @@ begin
   try
     Rep.Header(dm.GetSetting('SCHOOL_NAME', R_SchoolDefault),
                dm.GetSetting('DIRECTION', ''),
-               'من ' + FormatDateTime('dd/mm/yyyy', dtFrom.Date) +
-               ' إلى ' + FormatDateTime('dd/mm/yyyy', dtTo.Date) +
+               R_FromLbl + FormatDateTime('dd/mm/yyyy', dtFrom.Date) +
+               R_ToLbl + FormatDateTime('dd/mm/yyyy', dtTo.Date) +
                '   -   ' + R_AbsClass + ' : ' + cbClass.Text);
-    Rep.OpenTable(['الرقم', R_AbsDate, R_AbsClass, R_StuLastName, R_StuFirstName,
+    Rep.OpenTable([R_ColNum, R_AbsDate, R_AbsClass, R_StuLastName, R_StuFirstName,
                    R_AbsSlot, R_AbsSubject, R_AbsState, R_AbsJustified, R_AbsReason]);
     N  := 0;
     Bm := dm.qAbsences.GetBookmark;
@@ -314,8 +314,8 @@ begin
       dm.qAbsences.EnableControls;
     end;
     Rep.CloseTable;
-    Rep.Paragraph('المجموع : <b>' + IntToStr(N) + '</b> سجل.');
-    Rep.Signature('', 'مستشار التربية : ' + dm.GetSetting('ADVISOR', ''));
+    Rep.Paragraph(R_TotalPrefix + '<b>' + IntToStr(N) + '</b>' + R_SuffixRecords);
+    Rep.Signature('', R_SignAdvisor + dm.GetSetting('ADVISOR', ''));
     Rep.SaveAndOpen('Registre_Absences.html');
   finally
     Rep.Free;

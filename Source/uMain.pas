@@ -139,7 +139,7 @@ begin
   btnReports.Caption  := R_MnuReports;
   btnRefData.Caption  := R_RefTitle;
 
-  lblStatTitle.Caption := 'حوصلة سريعة';
+  lblStatTitle.Caption := R_DashTitle;
 end;
 
 procedure TfrmMain.ApplyRights;
@@ -183,7 +183,7 @@ begin
   lblWelcome.Caption := R_LoginWelcome + dm.CurrentUserName;
   lblSchool.Caption  := dm.GetSetting('SCHOOL_NAME', R_SchoolDefault) + '  -  ' +
                         dm.GetSetting('ADDRESS', R_PlaceDefault);
-  lblYear.Caption    := 'السنة الدراسية : ' + dm.CurrentYearLabel;
+  lblYear.Caption    := R_LblYear + dm.CurrentYearLabel;
 
   NbStudents := dm.ScalarInt('SELECT COUNT(*) FROM Students WHERE IsActive = True', 0);
   NbClasses  := dm.ScalarInt('SELECT COUNT(*) FROM Classes', 0);
@@ -192,10 +192,10 @@ begin
   NbUnjust   := dm.ScalarInt('SELECT COUNT(*) FROM Absences WHERE Justified = False' +
                              ' AND AbsKind = ' + SqlStr('ABS'), 0);
 
-  lblStatStudents.Caption := 'عدد التلاميذ المزاولين : ' + IntToStr(NbStudents);
-  lblStatClasses.Caption  := 'عدد الأقسام : ' + IntToStr(NbClasses);
-  lblStatAbsToday.Caption := 'غيابات اليوم : ' + IntToStr(NbAbsToday);
-  lblStatUnjust.Caption   := 'غيابات غير مبررة (المجموع) : ' + IntToStr(NbUnjust);
+  lblStatStudents.Caption := R_DashStudents + IntToStr(NbStudents);
+  lblStatClasses.Caption  := R_DashClasses + IntToStr(NbClasses);
+  lblStatAbsToday.Caption := R_DashAbsToday + IntToStr(NbAbsToday);
+  lblStatUnjust.Caption   := R_DashUnjust + IntToStr(NbUnjust);
 end;
 
 procedure TfrmMain.tmrTimer(Sender: TObject);
@@ -306,7 +306,7 @@ begin
     if BackupDatabase(dlgSave.FileName) then
       ShowInfo(R_BakDone + dlgSave.FileName)
     else
-      ShowError('تعذر إنشاء النسخة الاحتياطية.');
+      ShowError(R_BakFailed);
   end;
 end;
 
@@ -328,7 +328,7 @@ begin
     end
     else
     begin
-      ShowError('تعذر استرجاع النسخة الاحتياطية.');
+      ShowError(R_RestFailed);
       dm.Connect;
     end;
   end;

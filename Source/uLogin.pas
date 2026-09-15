@@ -62,7 +62,7 @@ begin
   lblPass.Caption  := R_LoginPass;
   btnLogin.Caption := R_LoginBtn;
   btnCancel.Caption:= R_Cancel;
-  lblHint.Caption  := 'الحساب الافتراضي : admin / admin';
+  lblHint.Caption  := R_LoginDefHint;
 
   if Assigned(dm) then
     lblSchool.Caption := dm.GetSetting('SCHOOL_NAME', R_SchoolDefault)
@@ -95,7 +95,7 @@ begin
     edPass.SetFocus;
     if FTries >= 3 then
     begin
-      ShowError('تم تجاوز عدد المحاولات المسموح بها. سيتم إغلاق البرنامج.');
+      ShowError(R_LoginTooMany);
       ModalResult := mrCancel;
     end;
   end;

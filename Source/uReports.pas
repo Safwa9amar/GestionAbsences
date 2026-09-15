@@ -76,12 +76,12 @@ end;
 procedure TfrmReports.ApplyCaptions;
 begin
   Caption          := R_RepTitle;
-  lblType.Caption  := 'نوع التقرير';
+  lblType.Caption  := R_RepType;
   lblFrom.Caption  := R_JusFrom;
   lblTo.Caption    := R_JusTo;
   lblClass.Caption := R_AbsClass;
-  lblTop.Caption   := 'عدد الأسطر';
-  btnPreview.Caption := 'عرض';
+  lblTop.Caption   := R_RepRows;
+  btnPreview.Caption := R_RepPreview;
   btnPrint.Caption   := R_Print;
   btnClose.Caption   := R_Close;
 
@@ -141,12 +141,12 @@ begin
     lblFrom.Caption := R_JusFrom;
 
   case T of
-    RT_DAILY : lblInfo.Caption := 'كشف كل الغيابات والتأخرات المسجلة في يوم محدد.';
-    RT_REGISTER : lblInfo.Caption := 'سجل مفصل للغيابات والتأخرات خلال فترة.';
-    RT_BYCLASS  : lblInfo.Caption := 'حوصلة عدد الغيابات والتأخرات حسب كل قسم.';
-    RT_TOPABS   : lblInfo.Caption := 'ترتيب التلاميذ حسب عدد الغيابات.';
+    RT_DAILY : lblInfo.Caption := R_RepHintDaily;
+    RT_REGISTER : lblInfo.Caption := R_RepHintReg;
+    RT_BYCLASS  : lblInfo.Caption := R_RepHintClass;
+    RT_TOPABS   : lblInfo.Caption := R_RepHintTop;
     RT_RATE     : lblInfo.Caption :=
-      'نسبة الحضور = 100% ناقص (الغيابات / (عدد التلاميذ × أيام العمل × عدد الحصص)).';
+      R_RepHintRate;
   end;
 
   dm.qRep.Close;
@@ -257,20 +257,20 @@ begin
     RT_BYCLASS :
       begin
         AddCol('ClassName', R_AbsClass,        120);
-        AddCol('NbTotal',   'المجموع',         110);
+        AddCol('NbTotal',   R_ColTotal,         110);
         AddCol('NbAbs',     R_AbsAbsent,       110);
         AddCol('NbLate',    R_AbsLate,         110);
-        AddCol('NbJust',    'مبررة',           110);
-        AddCol('NbUnjust',  'غير مبررة',       110);
+        AddCol('NbJust',    R_ColJust,           110);
+        AddCol('NbUnjust',  R_ColUnjust,       110);
       end;
     RT_TOPABS :
       begin
         AddCol('ClassName', R_AbsClass,        100);
         AddCol('LastName',  R_StuLastName,     160);
         AddCol('FirstName', R_StuFirstName,    160);
-        AddCol('NbTotal',   'مجموع الغيابات',  140);
-        AddCol('NbJust',    'مبررة',           110);
-        AddCol('NbUnjust',  'غير مبررة',       110);
+        AddCol('NbTotal',   R_ColTotalAbs,  140);
+        AddCol('NbJust',    R_ColJust,           110);
+        AddCol('NbUnjust',  R_ColUnjust,       110);
       end;
   end;
 end;
@@ -281,7 +281,7 @@ var
 begin
   if cbType.ItemIndex = RT_RATE then
   begin
-    ShowInfo('هذا التقرير يُنشأ مباشرة للطباعة. اضغط على زر الطباعة.');
+    ShowInfo(R_RepPrintOnly);
     Exit;
   end;
 
@@ -291,7 +291,7 @@ begin
   try
     dm.OpenQ(dm.qRep, Sql);
     SetupGridFor(cbType.ItemIndex);
-    lblInfo.Caption := 'عدد الأسطر : ' + IntToStr(dm.qRep.RecordCount);
+    lblInfo.Caption := R_RepRowCount + IntToStr(dm.qRep.RecordCount);
   except
     on E: Exception do
       ShowError(E.Message);
@@ -321,8 +321,8 @@ begin
                dm.GetSetting('DIRECTION', ''),
                IfThenStr(cbType.ItemIndex = RT_DAILY,
                  FormatArabicDate(dtFrom.Date),
-                 'من ' + FormatDateTime('dd/mm/yyyy', dtFrom.Date) +
-                 ' إلى ' + FormatDateTime('dd/mm/yyyy', dtTo.Date)) +
+                 R_FromLbl + FormatDateTime('dd/mm/yyyy', dtFrom.Date) +
+                 R_ToLbl + FormatDateTime('dd/mm/yyyy', dtTo.Date)) +
                '   -   ' + R_AbsClass + ' : ' + cbClass.Text);
 
     SetLength(Vals, Length(AFields) + 1);
@@ -355,8 +355,8 @@ begin
     end;
 
     Rep.CloseTable;
-    Rep.Paragraph('عدد الأسطر : <b>' + IntToStr(N) + '</b>');
-    Rep.Signature('', 'مستشار التربية : ' + dm.GetSetting('ADVISOR', ''));
+    Rep.Paragraph(R_RepRowCount + '<b>' + IntToStr(N) + '</b>');
+    Rep.Signature('', R_SignAdvisor + dm.GetSetting('ADVISOR', ''));
     Rep.SaveAndOpen(AFileName);
   finally
     Rep.Free;
@@ -404,17 +404,17 @@ begin
   TotPoss := 0;
   TotAbs  := 0;
 
-  Rep := TReportBuilder.Create('نسبة الحضور والغياب حسب الأقسام');
+  Rep := TReportBuilder.Create(R_RepRateTitle);
   try
     Rep.Header(dm.GetSetting('SCHOOL_NAME', R_SchoolDefault),
                dm.GetSetting('DIRECTION', ''),
-               'من ' + FormatDateTime('dd/mm/yyyy', dtFrom.Date) +
-               ' إلى ' + FormatDateTime('dd/mm/yyyy', dtTo.Date) +
-               '   -   أيام العمل : ' + IntToStr(NbDays) +
-               '   -   عدد الحصص في اليوم : ' + IntToStr(NbSlots));
+               R_FromLbl + FormatDateTime('dd/mm/yyyy', dtFrom.Date) +
+               R_ToLbl + FormatDateTime('dd/mm/yyyy', dtTo.Date) +
+               R_RepWorkDays + IntToStr(NbDays) +
+               R_RepSlotsPerDay + IntToStr(NbSlots));
 
-    Rep.OpenTable(['الرقم', R_AbsClass, 'عدد التلاميذ', 'الحصص الممكنة',
-                   'ساعات الغياب', 'نسبة الغياب %', 'نسبة الحضور %']);
+    Rep.OpenTable([R_ColNum, R_AbsClass, R_ColNbStudents, R_ColPossible,
+                   R_ColAbsHours, R_ColRateAbs, R_ColRatePres]);
 
     NbStud := 0;
     while not Q.Eof do
@@ -454,12 +454,12 @@ begin
     else
       RateAbs := 0;
 
-    Rep.Paragraph('النسبة العامة للغياب على مستوى المؤسسة : <b>' +
+    Rep.Paragraph(R_RepGlobalAbs + '<b>' +
                   FormatFloat('0.00', RateAbs) + ' %</b>' +
-                  '   -   النسبة العامة للحضور : <b>' +
+                  R_RepGlobalPres + '<b>' +
                   FormatFloat('0.00', 100 - RateAbs) + ' %</b>');
-    Rep.Signature('مدير المؤسسة' + #13#10 + dm.GetSetting('DIRECTOR', ''),
-                  'مستشار التربية : ' + dm.GetSetting('ADVISOR', ''));
+    Rep.Signature(R_SignDirector + #13#10 + dm.GetSetting('DIRECTOR', ''),
+                  R_SignAdvisor + dm.GetSetting('ADVISOR', ''));
     Rep.SaveAndOpen('Taux_Presence.html');
   finally
     Rep.Free;
@@ -474,7 +474,7 @@ begin
       begin
         btnPreviewClick(nil);
         PrintDataset(R_RepDaily,
-          ['الرقم', R_AbsClass, R_StuLastName, R_StuFirstName, R_AbsSlot,
+          [R_ColNum, R_AbsClass, R_StuLastName, R_StuFirstName, R_AbsSlot,
            R_AbsSubject, R_AbsState, R_AbsJustified, R_AbsReason],
           ['ClassName', 'LastName', 'FirstName', 'SlotLabel', 'SubjectName',
            'KindLabel', 'JustLabel', 'JustifyReason'],
@@ -484,7 +484,7 @@ begin
       begin
         btnPreviewClick(nil);
         PrintDataset(R_RepRegister,
-          ['الرقم', R_AbsDate, R_AbsClass, R_StuLastName, R_StuFirstName,
+          [R_ColNum, R_AbsDate, R_AbsClass, R_StuLastName, R_StuFirstName,
            R_AbsSlot, R_AbsState, R_AbsJustified, R_AbsReason],
           ['AbsDate', 'ClassName', 'LastName', 'FirstName', 'SlotLabel',
            'KindLabel', 'JustLabel', 'JustifyReason'],
@@ -494,8 +494,8 @@ begin
       begin
         btnPreviewClick(nil);
         PrintDataset(R_RepByClass,
-          ['الرقم', R_AbsClass, 'المجموع', R_AbsAbsent, R_AbsLate,
-           'مبررة', 'غير مبررة'],
+          [R_ColNum, R_AbsClass, R_ColTotal, R_AbsAbsent, R_AbsLate,
+           R_ColJust, R_ColUnjust],
           ['ClassName', 'NbTotal', 'NbAbs', 'NbLate', 'NbJust', 'NbUnjust'],
           'Synthese_Classes.html');
       end;
@@ -503,8 +503,8 @@ begin
       begin
         btnPreviewClick(nil);
         PrintDataset(R_RepTopAbsent,
-          ['الرقم', R_AbsClass, R_StuLastName, R_StuFirstName,
-           'مجموع الغيابات', 'مبررة', 'غير مبررة'],
+          [R_ColNum, R_AbsClass, R_StuLastName, R_StuFirstName,
+           R_ColTotalAbs, R_ColJust, R_ColUnjust],
           ['ClassName', 'LastName', 'FirstName', 'NbTotal', 'NbJust', 'NbUnjust'],
           'Top_Absents.html');
       end;

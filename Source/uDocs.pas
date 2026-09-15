@@ -108,7 +108,7 @@ begin
   tabCert.Caption   := R_CrtTitle;
 
   lblPClass.Caption   := R_AbsClass;
-  lblPStudent.Caption := 'التلميذ';
+  lblPStudent.Caption := R_NotStudent;
   lblPDate.Caption    := R_PrmDate;
   lblPTime.Caption    := R_PrmTime;
   lblPReason.Caption  := R_PrmReason;
@@ -118,7 +118,7 @@ begin
   btnPPrint.Caption   := R_Print;
 
   lblCClass.Caption   := R_AbsClass;
-  lblCStudent.Caption := 'التلميذ';
+  lblCStudent.Caption := R_NotStudent;
   lblCNo.Caption      := R_CrtNo;
   lblCDate.Caption    := R_NotIssueDate;
   lblCPurpose.Caption := R_CrtPurpose;
@@ -272,7 +272,7 @@ begin
   cbPStudent.ItemIndex := 0;
   dtPDate.Date  := Date;
   edPTime.Text  := FormatDateTime('hh:nn', Now);
-  edPReason.Text:= 'تأخر عن الدخول';
+  edPReason.Text:= R_PrmDefReason;
 end;
 
 procedure TfrmDocs.grdPermitCellClick(Column: TColumn);
@@ -301,7 +301,7 @@ begin
   Sid := ComboKey(cbPStudent, FPStuKeys);
   if Sid = 0 then
   begin
-    ShowError('يرجى اختيار التلميذ.');
+    ShowError(R_NotSelectStudent);
     Exit;
   end;
   try
@@ -343,11 +343,11 @@ begin
     ShowInfo(R_MsgNoRecord);
     Exit;
   end;
-  Rep := TReportBuilder.Create('رخصة الدخول إلى القسم');
+  Rep := TReportBuilder.Create(R_PrmDocTitle);
   try
     Rep.Header(dm.GetSetting('SCHOOL_NAME', R_SchoolDefault),
                dm.GetSetting('DIRECTION', ''),
-               'السنة الدراسية : ' + dm.CurrentYearLabel);
+               R_LblYear + dm.CurrentYearLabel);
     Rep.Paragraph('يسمح للتلميذ(ة) : <b>' +
       HtmlEscape(FqPermit.FieldByName('LastName').AsString + ' ' +
                  FqPermit.FieldByName('FirstName').AsString) +
@@ -360,7 +360,7 @@ begin
       '</b><br>السبب : <b>' +
       HtmlEscape(FqPermit.FieldByName('Reason').AsString) + '</b>');
     Rep.Signature('مستشار التربية' + #13#10 + dm.GetSetting('ADVISOR', ''),
-                  'في : ' + FormatDateTime('dd/mm/yyyy', Date));
+                  R_AtDate + FormatDateTime('dd/mm/yyyy', Date));
     Rep.SaveAndOpen('Billet_Entree.html');
   finally
     Rep.Free;
@@ -394,7 +394,7 @@ begin
   cbCStudent.ItemIndex := 0;
   edCNo.Text      := IntToStr(dm.NextCertNumber);
   dtCDate.Date    := Date;
-  edCPurpose.Text := 'للاستعمال فيما يخدم مصلحة المعني';
+  edCPurpose.Text := R_CrtDefPurpose;
   edCCopies.Text  := '3';
 end;
 
@@ -425,7 +425,7 @@ begin
   Sid := ComboKey(cbCStudent, FCStuKeys);
   if Sid = 0 then
   begin
-    ShowError('يرجى اختيار التلميذ.');
+    ShowError(R_NotSelectStudent);
     Exit;
   end;
   try
@@ -477,14 +477,14 @@ begin
   Copies := FqCert.FieldByName('CopiesNo').AsInteger;
   if Copies < 1 then Copies := 1;
 
-  Rep := TReportBuilder.Create('شهـــادة مدرسيــة');
+  Rep := TReportBuilder.Create(R_CrtDocTitle);
   try
     for I := 1 to Copies do
     begin
       Rep.Header(dm.GetSetting('SCHOOL_NAME', R_SchoolDefault),
                  dm.GetSetting('DIRECTION', ''),
-                 'الرقم : ' + FqCert.FieldByName('CertNo').AsString +
-                 '   -   السنة الدراسية : ' + dm.CurrentYearLabel);
+                 R_CrtNoPrefix + FqCert.FieldByName('CertNo').AsString +
+                 '   -   ' + R_LblYear + dm.CurrentYearLabel);
       Rep.Paragraph(
         'أنا الممضي أسفله، مدير متوسطة <b>' +
         HtmlEscape(dm.GetSetting('SCHOOL_NAME', R_SchoolDefault)) +
@@ -502,8 +502,8 @@ begin
         '</b> خلال السنة الدراسية <b>' + HtmlEscape(dm.CurrentYearLabel) +
         '</b>.<br><br>وسلمت له هذه الشهادة ' +
         HtmlEscape(FqCert.FieldByName('Purpose').AsString) + '.');
-      Rep.Signature('مدير المؤسسة' + #13#10 + dm.GetSetting('DIRECTOR', ''),
-                    dm.GetSetting('ADDRESS', '') + ' في : ' +
+      Rep.Signature(R_SignDirector + #13#10 + dm.GetSetting('DIRECTOR', ''),
+                    dm.GetSetting('ADDRESS', '') + R_AtDate +
                     FormatDateTime('dd/mm/yyyy',
                     FqCert.FieldByName('IssueDate').AsDateTime));
       if I < Copies then

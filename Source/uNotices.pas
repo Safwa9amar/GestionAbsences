@@ -150,7 +150,7 @@ begin
   btnGenerate.Caption := R_NotGenerate;
 
   lblClass.Caption    := R_AbsClass;
-  lblStudent.Caption  := 'التلميذ';
+  lblStudent.Caption  := R_NotStudent;
   lblKind.Caption     := R_NotKind;
   lblNo.Caption       := R_NotNo;
   lblIssue.Caption    := R_NotIssueDate;
@@ -437,7 +437,7 @@ begin
 
   if Sid = 0 then
   begin
-    ShowError('يرجى اختيار التلميذ.');
+    ShowError(R_NotSelectStudent);
     Exit;
   end;
 
@@ -526,16 +526,16 @@ begin
   try
     Rep.Header(dm.GetSetting('SCHOOL_NAME', R_SchoolDefault),
                dm.GetSetting('DIRECTION', ''),
-               'السنة الدراسية : ' + dm.CurrentYearLabel);
+               R_LblYear + dm.CurrentYearLabel);
 
-    Rep.OpenTable(['البيان', 'القيمة']);
+    Rep.OpenTable([R_ColItem, R_ColValue]);
     Rep.Row([R_NotNo,        dm.qNotices.FieldByName('NoticeNo').AsString]);
     Rep.Row([R_NotIssueDate, FormatDateTime('dd/mm/yyyy',
                              dm.qNotices.FieldByName('IssueDate').AsDateTime)]);
-    Rep.Row(['المرسل',       'مدير المؤسسة : ' + dm.GetSetting('DIRECTOR', '')]);
-    Rep.Row(['المرسل إليه',  'ولي التلميذ : ' + Guardian]);
-    Rep.Row(['العنوان',      Addr]);
-    Rep.Row(['اسم ولقب التلميذ', StudName]);
+    Rep.Row([R_NotSender,       R_DirectorPrefix + dm.GetSetting('DIRECTOR', '')]);
+    Rep.Row([R_NotRecipient,  R_GuardianPrefix + Guardian]);
+    Rep.Row([R_NotAddress,      Addr]);
+    Rep.Row([R_NotStudentName, StudName]);
     Rep.Row([R_StuClass,     ClassName]);
     Rep.Row([R_NotTopic,     dm.qNotices.FieldByName('NoticeTopic').AsString]);
     Rep.CloseTable;
@@ -573,8 +573,8 @@ begin
         'الداخلي للمؤسسة.');
 
     Rep.Paragraph('&nbsp;');
-    Rep.Signature('مدير المؤسسة' + #13#10 + dm.GetSetting('DIRECTOR', ''),
-                  dm.GetSetting('ADDRESS', '') + ' في : ' +
+    Rep.Signature(R_SignDirector + #13#10 + dm.GetSetting('DIRECTOR', ''),
+                  dm.GetSetting('ADDRESS', '') + R_AtDate +
                   FormatDateTime('dd/mm/yyyy', Date));
     Rep.SaveAndOpen('Notice_' + Kind + '.html');
   finally

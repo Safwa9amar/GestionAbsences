@@ -422,9 +422,9 @@ begin
                         IntToStr(Id), 0);
   if NbAbs > 0 then
   begin
-    if not AskYesNo('هذا التلميذ مسجل عليه ' + IntToStr(NbAbs) +
-                    ' غياب / تأخر.' + #13#10 +
-                    'سيتم حذف كل هذه السجلات كذلك. هل تريد المتابعة ؟') then
+    if not AskYesNo(R_StuDelHasAbs1 + IntToStr(NbAbs) +
+                    R_StuDelHasAbs2 + #13#10 +
+                    R_StuDelHasAbs3) then
       Exit;
   end
   else
@@ -558,13 +558,13 @@ begin
     Exit;
   end;
 
-  Rep := TReportBuilder.Create('قائمة التلاميذ');
+  Rep := TReportBuilder.Create(R_RepStuList);
   try
     Rep.Header(dm.GetSetting('SCHOOL_NAME', R_SchoolDefault),
                dm.GetSetting('DIRECTION', ''),
-               'السنة الدراسية : ' + dm.CurrentYearLabel + '   -   ' +
-               'القسم : ' + cbFClass.Text);
-    Rep.OpenTable(['الرقم', R_StuMatricule, R_StuLastName, R_StuFirstName,
+               R_LblYear + dm.CurrentYearLabel + '   -   ' +
+               R_LblClass + cbFClass.Text);
+    Rep.OpenTable([R_ColNum, R_StuMatricule, R_StuLastName, R_StuFirstName,
                    R_StuGender, R_StuBirthDate, R_StuBirthPlace, R_StuClass,
                    R_StuRegime, R_StuGuardPhone]);
     N  := 0;
@@ -596,8 +596,8 @@ begin
       dm.qStudents.EnableControls;
     end;
     Rep.CloseTable;
-    Rep.Paragraph('المجموع : <b>' + IntToStr(N) + '</b> تلميذ.');
-    Rep.Signature('', 'مستشار التربية : ' + dm.GetSetting('ADVISOR', ''));
+    Rep.Paragraph(R_TotalPrefix + '<b>' + IntToStr(N) + '</b>' + R_SuffixStudents);
+    Rep.Signature('', R_SignAdvisor + dm.GetSetting('ADVISOR', ''));
     Rep.SaveAndOpen('Liste_Eleves.html');
   finally
     Rep.Free;
@@ -621,8 +621,8 @@ begin
   try
     Rep.Header(dm.GetSetting('SCHOOL_NAME', R_SchoolDefault),
                dm.GetSetting('DIRECTION', ''),
-               'السنة الدراسية : ' + dm.CurrentYearLabel);
-    Rep.OpenTable(['البيان', 'القيمة']);
+               R_LblYear + dm.CurrentYearLabel);
+    Rep.OpenTable([R_ColItem, R_ColValue]);
     Rep.Row([R_StuMatricule,  edMatricule.Text]);
     Rep.Row([R_StuRegNo,      edRegNo.Text]);
     Rep.Row([R_StuLastName,   edLastName.Text]);
@@ -643,7 +643,7 @@ begin
     Rep.Row([R_StuGuardAddr,  edGAddr.Text]);
     Rep.Row([R_StuEnrollDate, FormatDateTime('dd/mm/yyyy', dtEnroll.Date)]);
     Rep.CloseTable;
-    Rep.Signature('', 'مستشار التربية : ' + dm.GetSetting('ADVISOR', ''));
+    Rep.Signature('', R_SignAdvisor + dm.GetSetting('ADVISOR', ''));
     Rep.SaveAndOpen('Fiche_Eleve.html');
   finally
     Rep.Free;
@@ -717,7 +717,7 @@ begin
   NbUnj  := dm.CountUnjustified(Id, EncodeDate(2000,1,1), EncodeDate(2100,1,1));
 
   lblAbsSummary.Caption := Format(
-    'مجموع الغيابات : %d   منها غير مبررة : %d   -   مجموع التأخرات : %d',
+    R_StuAbsSummaryFmt,
     [NbAbs, NbUnj, NbLate]);
 end;
 
